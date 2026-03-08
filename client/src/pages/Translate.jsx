@@ -365,72 +365,74 @@ export default function Translate(){
     try {
       console.log(`🔊 Requesting TTS for "${result}" in ${target} (${langMap[target]})...`);
       
-      // Use browser's built-in speech synthesis as primary method
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(result);
-        
-        // Set language
-        const langCodes = {
-          'en': 'en-US',
-          'hi': 'hi-IN',
-          'ta': 'ta-IN',
-          'te': 'te-IN',
-          'bn': 'bn-IN'
-        };
-        utterance.lang = langCodes[target] || 'en-US';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        
-        utterance.onstart = () => {
-          console.log(`🔊 Speaking in ${langMap[target]}`);
-        };
-        
-        utterance.onend = () => {
-          console.log(`🔊 Speech completed`);
-        };
-        
-        utterance.onerror = (event) => {
-          console.error('🔊 Speech synthesis error:', event);
-          // Fallback to server TTS
-          tryServerTTS();
-        };
-        
-        window.speechSynthesis.speak(utterance);
-        return;
-      }
+      const API_BASE_URL = getApiBaseUrl();
       
-      // Fallback to server TTS if browser doesn't support speech synthesis
-      await tryServerTTS();
+      // Build direct Google TTS URL
+      const langCodes = {
+        'en': 'en',
+        'hi': 'hi',
+        'ta': 'ta',
+        'te': 'te',
+        'bn': 'bn'
+      };
+      
+      const langCode = langCodes[target] || 'en';
+      const encodedText = encodeURIComponent(result);
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${langCode}&client=tw-ob`;
+      
+      console.log(`🔊 Using direct Google TTS URL`);
+      
+      // Create audio element and play directly from Google
+      const audio = new Audio(ttsUrl);
+      
+      audio.onloadstart = () => {
+        console.log(`🔊 Loading audio for ${langMap[target]}...`);
+      };
+      
+      audio.oncanplay = () => {
+        console.log(`🔊 Audio ready to play`);
+      };
+      
+      audio.onended = () => {
+        console.log(`🔊 Audio playback completed`);
+      };
+      
+      audio.onerror = (e) => {
+        console.error('🔊 Audio error:', e);
+        // Fallback to server proxy
+        tryServerTTS();
+      };
+      
+      await audio.play();
+      console.log(`🔊 Playing audio for ${langMap[target]}`);
       
     } catch (err) {
-      console.error('🔊 TTS Error:', err);
-      alert(`🔊 Error: ${err.message}`);
+      console.error('🔊 Direct TTS failed:', err);
+      // Try server proxy as fallback
+      tryServerTTS();
     }
     
     async function tryServerTTS() {
       try {
+        console.log(`🔊 Trying server TTS proxy...`);
         const API_BASE_URL = getApiBaseUrl();
         const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
           method: 'POST',
           headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'audio/mpeg'
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ text: result, language: target })
         });
 
-        console.log(`🔊 Server TTS response status: ${response.status}`);
-
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: response.statusText }));
-          throw new Error(errorData.error || `Server error: ${response.statusText}`);
+          throw new Error(`Server error: ${response.status}`);
         }
 
         const audioBlob = await response.blob();
-        console.log(`🔊 Audio blob size: ${audioBlob.size} bytes`);
+        console.log(`🔊 Server audio blob size: ${audioBlob.size} bytes`);
         
         if (audioBlob.size === 0) {
-          throw new Error('Empty audio response from server');
+          throw new Error('Empty audio response');
         }
 
         const audioUrl = URL.createObjectURL(audioBlob);
@@ -441,10 +443,10 @@ export default function Translate(){
         };
         
         await audio.play();
-        console.log(`🔊 Playing server audio for ${langMap[target]}`);
+        console.log(`🔊 Playing server audio`);
       } catch (err) {
         console.error('🔊 Server TTS failed:', err);
-        throw err;
+        alert(`🔊 Sorry, audio playback failed. Please try again.`);
       }
     }
   };
