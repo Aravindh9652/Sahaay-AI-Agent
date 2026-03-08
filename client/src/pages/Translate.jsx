@@ -351,7 +351,7 @@ export default function Translate(){
     }
   }
 
-  const speakTranslation = () => {
+  const speakTranslation = async () => {
     if (!result) return;
     
     const langMap = {
@@ -362,74 +362,63 @@ export default function Translate(){
       'bn': 'Bengali'
     };
 
-    console.log(`🔊 Speaking: "${result}" in ${langMap[target]}`);
-    
-    // Use Google Translate TTS directly - works for ALL languages
-    const langCodes = {
-      'en': 'en',
-      'hi': 'hi',
-      'ta': 'ta',
-      'te': 'te',
-      'bn': 'bn'
-    };
-    
-    const langCode = langCodes[target] || 'en';
-    const encodedText = encodeURIComponent(result);
-    
-    // Google Translate TTS URL - this works for all Indian languages
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${langCode}&client=tw-ob&ttsspeed=0.8`;
-    
-    console.log(`🔊 Using Google TTS for ${langMap[target]}`);
-    
-    // Create and play audio
-    const audio = new Audio(ttsUrl);
-    
-    audio.onloadstart = () => {
-      console.log(`🔊 Loading audio...`);
-    };
-    
-    audio.oncanplaythrough = () => {
-      console.log(`🔊 Audio ready, playing...`);
-    };
-    
-    audio.onplay = () => {
-      console.log(`🔊 Playing ${langMap[target]} audio`);
-    };
-    
-    audio.onended = () => {
-      console.log(`🔊 Playback completed`);
-    };
-    
-    audio.onerror = (e) => {
-      console.error('🔊 Audio error:', e);
-      console.log('🔊 Trying browser speech synthesis as fallback...');
+    try {
+      console.log(`🔊 Requesting TTS for "${result}" in ${langMap[target]}`);
       
-      // Fallback to browser speech synthesis
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        setTimeout(() => {
-          const utterance = new SpeechSynthesisUtterance(result);
-          const speechLangCodes = {
-            'en': 'en-US',
-            'hi': 'hi-IN',
-            'ta': 'ta-IN',
-            'te': 'te-IN',
-            'bn': 'bn-IN'
-          };
-          utterance.lang = speechLangCodes[target] || 'en-US';
-          utterance.rate = 0.85;
-          window.speechSynthesis.speak(utterance);
-        }, 100);
-      } else {
-        alert(`🔊 Audio playback failed for ${langMap[target]}. Please check your internet connection.`);
+      const API_BASE_URL = getApiBaseUrl();
+      
+      // Call Lambda TTS endpoint
+      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          text: result, 
+          language: target 
+        })
+      });
+
+      console.log(`🔊 Response status: ${response.status}`);
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
       }
-    };
-    
-    // Play the audio
-    audio.play().catch(err => {
-      console.error('🔊 Play error:', err);
-      alert(`🔊 Could not play audio. Please click the Listen button again.`);
-    });
+
+      // Get the audio blob
+      const audioBlob = await response.blob();
+      console.log(`🔊 Received audio: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+      
+      if (audioBlob.size < 100) {
+        throw new Error('Audio file too small or empty');
+      }
+
+      // Create audio URL and play
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.onplay = () => {
+        console.log(`🔊 Playing ${langMap[target]} audio`);
+      };
+      
+      audio.onended = () => {
+        console.log(`🔊 Playback completed`);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = (e) => {
+        console.error('🔊 Audio playback error:', e);
+        URL.revokeObjectURL(audioUrl);
+        throw new Error('Audio playback failed');
+      };
+      
+      // Play the audio
+      await audio.play();
+      
+    } catch (err) {
+      console.error('🔊 TTS Error:', err);
+      alert(`🔊 Audio not available for ${langMap[target]}. Error: ${err.message}`);
+    }
   };
 
   return (
