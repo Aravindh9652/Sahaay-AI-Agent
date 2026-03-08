@@ -351,7 +351,7 @@ export default function Translate(){
     }
   }
 
-  const speakTranslation = async () => {
+  const speakTranslation = () => {
     if (!result) return;
     
     const langMap = {
@@ -362,52 +362,59 @@ export default function Translate(){
       'bn': 'Bengali'
     };
 
-    try {
-      console.log(`🔊 Requesting TTS for "${result}" in ${langMap[target]}`);
+    console.log(`🔊 Speaking: "${result}" in ${langMap[target]}`);
+    
+    // Use browser's Web Speech API - this works reliably
+    if ('speechSynthesis' in window) {
+      // Stop any ongoing speech
+      window.speechSynthesis.cancel();
       
-      const API_BASE_URL = getApiBaseUrl();
-      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ text: result, language: target })
-      });
-
-      console.log(`🔊 Response status: ${response.status}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
-      }
-
-      const audioBlob = await response.blob();
-      console.log(`🔊 Audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+      // Wait a bit for cancel to complete
+      setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance(result);
+        
+        // Language codes for Indian languages
+        const langCodes = {
+          'en': 'en-US',
+          'hi': 'hi-IN',
+          'ta': 'ta-IN',
+          'te': 'te-IN',
+          'bn': 'bn-IN'
+        };
+        
+        utterance.lang = langCodes[target] || 'en-US';
+        utterance.rate = 0.85;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        utterance.onstart = () => {
+          console.log(`🔊 Started speaking in ${langMap[target]}`);
+        };
+        
+        utterance.onend = () => {
+          console.log(`🔊 Finished speaking`);
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('🔊 Speech error:', event.error);
+          
+          // If language not available, try English as fallback
+          if (event.error === 'language-unavailable' && target !== 'en') {
+            console.log(`🔊 ${langMap[target]} not available, trying English...`);
+            const fallbackUtterance = new SpeechSynthesisUtterance(result);
+            fallbackUtterance.lang = 'en-US';
+            fallbackUtterance.rate = 0.85;
+            window.speechSynthesis.speak(fallbackUtterance);
+          }
+        };
+        
+        // Speak the text
+        window.speechSynthesis.speak(utterance);
+        
+      }, 100);
       
-      if (audioBlob.size === 0) {
-        throw new Error('Empty audio response');
-      }
-
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onended = () => {
-        console.log(`🔊 Playback completed`);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = (e) => {
-        console.error('🔊 Audio playback error:', e);
-        URL.revokeObjectURL(audioUrl);
-        alert(`🔊 Audio playback failed. Please try again.`);
-      };
-      
-      await audio.play();
-      console.log(`🔊 Playing audio for ${langMap[target]}`);
-      
-    } catch (err) {
-      console.error('🔊 TTS Error:', err);
-      alert(`🔊 Error: ${err.message}`);
+    } else {
+      alert('🔊 Text-to-speech not supported in your browser. Please use Chrome, Edge, or Safari.');
     }
   };
 
