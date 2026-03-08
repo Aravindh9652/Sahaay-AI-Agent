@@ -365,61 +365,87 @@ export default function Translate(){
     try {
       console.log(`🔊 Requesting TTS for "${result}" in ${target} (${langMap[target]})...`);
       
-      const API_BASE_URL = getApiBaseUrl()
-      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'audio/mpeg'
-        },
-        body: JSON.stringify({ text: result, language: target })
-      });
-
-      console.log(`🔊 Response status: ${response.status}`);
-      console.log(`🔊 Response headers:`, response.headers.get('content-type'));
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(errorData.error || `Server error: ${response.statusText}`);
+      // Use browser's built-in speech synthesis as primary method
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(result);
+        
+        // Set language
+        const langCodes = {
+          'en': 'en-US',
+          'hi': 'hi-IN',
+          'ta': 'ta-IN',
+          'te': 'te-IN',
+          'bn': 'bn-IN'
+        };
+        utterance.lang = langCodes[target] || 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        
+        utterance.onstart = () => {
+          console.log(`🔊 Speaking in ${langMap[target]}`);
+        };
+        
+        utterance.onend = () => {
+          console.log(`🔊 Speech completed`);
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('🔊 Speech synthesis error:', event);
+          // Fallback to server TTS
+          tryServerTTS();
+        };
+        
+        window.speechSynthesis.speak(utterance);
+        return;
       }
-
-      // Get audio blob from response
-      const audioBlob = await response.blob();
       
-      console.log(`🔊 Audio blob size: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+      // Fallback to server TTS if browser doesn't support speech synthesis
+      await tryServerTTS();
       
-      if (audioBlob.size === 0) {
-        throw new Error('Empty audio response from server');
-      }
-
-      // Create object URL for the blob
-      const audioUrl = URL.createObjectURL(audioBlob);
-      console.log(`🔊 Created audio URL: ${audioUrl}`);
-      
-      // Create audio element and play
-      const audio = new Audio(audioUrl);
-      
-      audio.onloadeddata = () => {
-        console.log(`🔊 Audio loaded successfully, duration: ${audio.duration}s`);
-      };
-      
-      audio.onerror = (e) => {
-        console.error('🔊 Audio element error:', e);
-        URL.revokeObjectURL(audioUrl);
-        alert(`🔊 Audio playback failed for ${langMap[target]}. The audio format may not be supported.`);
-      };
-      
-      audio.onended = () => {
-        console.log(`🔊 Audio playback completed`);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      await audio.play();
-      console.log(`🔊 Playing audio for ${langMap[target]}`);
-
     } catch (err) {
       console.error('🔊 TTS Error:', err);
       alert(`🔊 Error: ${err.message}`);
+    }
+    
+    async function tryServerTTS() {
+      try {
+        const API_BASE_URL = getApiBaseUrl();
+        const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'audio/mpeg'
+          },
+          body: JSON.stringify({ text: result, language: target })
+        });
+
+        console.log(`🔊 Server TTS response status: ${response.status}`);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: response.statusText }));
+          throw new Error(errorData.error || `Server error: ${response.statusText}`);
+        }
+
+        const audioBlob = await response.blob();
+        console.log(`🔊 Audio blob size: ${audioBlob.size} bytes`);
+        
+        if (audioBlob.size === 0) {
+          throw new Error('Empty audio response from server');
+        }
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        await audio.play();
+        console.log(`🔊 Playing server audio for ${langMap[target]}`);
+      } catch (err) {
+        console.error('🔊 Server TTS failed:', err);
+        throw err;
+      }
     }
   };
 
