@@ -129,6 +129,9 @@ export default function CivicHub({ user }) {
     
     try {
       const API_BASE_URL = getApiBaseUrl()
+      console.log('[AI] Sending request to:', `${API_BASE_URL}/api/aws/query`)
+      console.log('[AI] Request body:', { userId: user?.id || 'anonymous', query: question, language: 'en' })
+      
       const res = await fetch(`${API_BASE_URL}/api/aws/query`, {
         method: 'POST',
         headers: {
@@ -141,10 +144,15 @@ export default function CivicHub({ user }) {
           language: 'en'
         })
       })
+      
+      console.log('[AI] Response status:', res.status)
       const data = await res.json()
+      console.log('[AI] Response data:', data)
+      
       const aiResponse = data?.data?.answer || data?.error || 'No response from AI'
       setChatHistory(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (err) {
+      console.error('[AI] Error:', err)
       setChatHistory(prev => [...prev, { role: 'ai', text: 'Error connecting to AI. Please try again.' }])
     }
     setAiLoading(false)
