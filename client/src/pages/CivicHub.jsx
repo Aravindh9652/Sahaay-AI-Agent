@@ -119,12 +119,31 @@ export default function CivicHub({ user }) {
     setAiQuery('')
     setAiLoading(true)
     setChatHistory(prev => [...prev, { role: 'user', text: question }])
+    
+    const token = getToken()
+    if (!token) {
+      setChatHistory(prev => [...prev, { role: 'ai', text: 'Please login to use AI assistant.' }])
+      setAiLoading(false)
+      return
+    }
+    
     try {
-      const res = await fetch('/api/test/bedrock?prompt=' + encodeURIComponent(
-        `You are SAHAAY AI assistant helping Indian citizens find government schemes. Answer this question concisely in 3-4 sentences: ${question}`
-      ))
+      const API_BASE_URL = getApiBaseUrl()
+      const res = await fetch(`${API_BASE_URL}/api/aws/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user?.id || 'anonymous',
+          query: question,
+          language: 'en'
+        })
+      })
       const data = await res.json()
-      setChatHistory(prev => [...prev, { role: 'ai', text: data.response || data.error || 'No response' }])
+      const aiResponse = data?.data?.answer || data?.error || 'No response from AI'
+      setChatHistory(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (err) {
       setChatHistory(prev => [...prev, { role: 'ai', text: 'Error connecting to AI. Please try again.' }])
     }
