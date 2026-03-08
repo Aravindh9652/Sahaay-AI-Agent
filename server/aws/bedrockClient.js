@@ -150,15 +150,35 @@ Response format (JSON only):
 }
 
 /**
- * Translate response to target language using Bedrock
+ * Translate response to target language using Bedrock Nova Lite
  * @param {string} text - Text to translate
- * @param {string} targetLanguage - Target language code
+ * @param {string} targetLanguage - Target language code (en, hi, ta, te, bn)
  * @returns {Promise<string>} - Translated text
  */
 async function translateWithBedrock(text, targetLanguage) {
-  const prompt = `Translate the following text to ${targetLanguage}. Respond with ONLY the translated text, no explanation.
+  // Language mapping for better context
+  const languageNames = {
+    'en': 'English',
+    'hi': 'Hindi (हिंदी)',
+    'ta': 'Tamil (தமிழ்)',
+    'te': 'Telugu (తెలుగు)',
+    'bn': 'Bengali (বাংলা)'
+  };
 
-Text: "${text}"`
+  const targetLangName = languageNames[targetLanguage] || targetLanguage;
+
+  const prompt = `You are a professional translator specializing in Indian languages. Translate the following text accurately to ${targetLangName}.
+
+IMPORTANT RULES:
+1. Provide ONLY the translated text, no explanations or notes
+2. Maintain the original meaning and context
+3. Use natural, conversational language
+4. For proper nouns (names, places), keep them as-is or transliterate appropriately
+5. Preserve any numbers, dates, or technical terms accurately
+
+Text to translate: "${text}"
+
+Translation in ${targetLangName}:`
 
   return invokeBedrockModel(prompt, { maxTokens: 500 })
 }

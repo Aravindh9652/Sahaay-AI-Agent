@@ -27,6 +27,10 @@ app.use(cors({
 }))
 app.use(express.json())
 
+// === AUTHENTICATION ROUTES ===
+// Import and use auth routes for signup, login, profile management
+app.use('/api/auth', require('./routes/auth'))
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -155,10 +159,7 @@ app.get('/api/aws/info', (req, res) => {
       query: 'POST /api/aws/query',
       multilingualQuery: 'POST /api/aws/query/multilingual',
       health: 'GET /api/aws/health',
-      info: 'GET /api/aws/info',
-      signup: 'POST /api/auth/signup',
-      login: 'POST /api/auth/login',
-      verify: 'GET /api/auth/verify'
+      info: 'GET /api/aws/info'
     },
     aws: {
       region: process.env.AWS_REGION || 'us-east-1',
@@ -167,90 +168,6 @@ app.get('/api/aws/info', (req, res) => {
     },
     timestamp: new Date().toISOString()
   })
-})
-
-// === Authentication Endpoints ===
-const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
-const crypto = require('crypto')
-const { loadUsers, saveUsers } = require('./services/userStore')
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
-
-function signToken(user) {
-  return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' })
-}
-
-// POST /api/auth/signup
-app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const { name, email, password } = req.body
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Missing fields' })
-    }
-    const users = await loadUsers()
-    if (Object.values(users).find(u => u.email === email)) {
-      return res.status(400).json({ error: 'Email already registered' })
-    }
-    const hash = await bcrypt.hash(password, 10)
-    const userId = crypto.randomBytes(8).toString('hex')
-    const now = new Date().toISOString()
-    const user = { 
-      id: userId, 
-      name, 
-      email, 
-      passwordHash: hash, 
-      verified: false, 
-      createdAt: now, 
-      lastLogin: now, 
-      profile: { name, email }, 
-      progress: {}, 
-      bookmarks: {}, 
-      activity: [] 
-    }
-    users[userId] = user
-    await saveUsers(users)
-    const token = signToken(user)
-    res.json({ ok: true, user: { id: user.id, name: user.name, email: user.email }, token })
-  } catch (error) {
-    console.error('[Lambda] Signup error:', error)
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// POST /api/auth/login
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body
-    const users = await loadUsers()
-    const user = Object.values(users).find(u => u.email === email)
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' })
-    const match = await bcrypt.compare(password, user.passwordHash)
-    if (!match) return res.status(401).json({ error: 'Invalid credentials' })
-    const token = signToken(user)
-    res.json({ ok: true, user: { id: user.id, name: user.name, email: user.email }, token })
-  } catch (error) {
-    console.error('[Lambda] Login error:', error)
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// GET /api/auth/verify
-app.get('/api/auth/verify', (req, res) => {
-  try {
-    const auth = req.headers.authorization
-    const token = auth && auth.split(' ')[1]
-    if (!token) return res.json({ verified: false })
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET)
-      res.json({ ok: true, verified: true, user: decoded })
-    } catch (err) {
-      res.json({ ok: true, verified: false })
-    }
-  } catch (error) {
-    console.error('[Lambda] Verify error:', error)
-    res.status(500).json({ error: error.message })
-  }
 })
 
 // === Error Handlers ===

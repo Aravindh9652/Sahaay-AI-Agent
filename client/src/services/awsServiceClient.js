@@ -238,11 +238,6 @@ class AWSServiceClient {
 }
 
 // Export singleton for use throughout the app
-// Use Lambda Function URL in production, localhost in development
-const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://j3va2fbe5z6jgafdppdgldxny40eozqu.lambda-url.us-east-1.on.aws'
-  : 'http://localhost:5000'
-
-const awsServiceClient = new AWSServiceClient(API_BASE_URL)
+const awsServiceClient = new AWSServiceClient('http://localhost:5000')
 
 export default awsServiceClient

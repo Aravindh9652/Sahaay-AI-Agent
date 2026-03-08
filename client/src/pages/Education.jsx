@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 const courses = [
   { id: 1, title: 'Digital Skills 101', category: 'Tech', level: 'Beginner', duration: '3:56:43 Hrs', icon: '💻', color: '#3b82f6', enrolled: 1250, progress: 65, description: 'Master fundamental digital literacy', youtubePlaylistId: 'PLms624yjnnfZJySkguNQUWFfnOcJaz3pf', youtubeUrl: 'https://youtube.com/playlist?list=PLms624yjnnfZJySkguNQUWFfnOcJaz3pf&si=Wrv-J0ySbjwRGayq' },
@@ -18,22 +20,13 @@ const allResources = [
   { id: 3, type: 'Learning Center', title: 'IIT Delhi', author: 'Government', icon: '🎓', color: '#3b82f6', courses: 156, description: 'Premier engineering institute', website: 'https://home.iitd.ac.in' },
   { id: 4, type: 'Online Platform', title: 'NPTEL - Free Courses', author: 'IIT Madras', icon: '💻', color: '#667eea', courses: 14000, description: '14000+ engineering courses', website: 'https://nptel.ac.in' },
   { id: 5, type: 'Library', title: 'Agricultural Research Library', author: 'ICAR', icon: '🌾', color: '#10b981', hours: '9 AM - 5 PM', description: 'Agricultural research resources', website: 'https://icar.org.in' },
-<<<<<<< HEAD
-  { id: 6, type: 'Learning Center', title: 'Skill India Training', author: 'Government', icon: '🛠️', color: '#f59e0b', courses: 89, description: 'Vocational skill training', website: 'https://www.skillindia.gov.in' },
-=======
   { id: 6, type: 'Learning Center', title: 'Skill India Training', author: 'Government', icon: '🛠️', color: '#f59e0b', courses: 89, description: 'Vocational skill training', website: 'https://www.skillindiadigital.gov.in/home' },
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
   { id: 7, type: 'Library', title: 'Pune Library - Bhandarkar', author: 'Government', icon: '📚', color: '#8b5cf6', hours: '9 AM - 5:30 PM', description: 'Rare books & manuscripts', website: 'https://www.bori.ac.in' },
   { id: 8, type: 'Study Group Center', title: 'Anna Centenary Library', author: 'Government', icon: '👥', color: '#14b8a6', hours: '9 AM - 9 PM', description: 'Public study & research', website: 'https://www.annacentenarylibrary.org' },
   { id: 9, type: 'Online Platform', title: 'Khan Academy India', author: 'Khan Academy', icon: '📱', color: '#06b6d4', description: 'Free educational videos', website: 'https://www.khanacademy.org' },
   { id: 10, type: 'Learning Center', title: 'Mumbai Business Institute', author: 'Private', icon: '🏢', color: '#8b5cf6', courses: 42, description: 'Business education', website: 'https://www.mu.ac.in' },
-<<<<<<< HEAD
-  { id: 11, type: 'Government Scheme', title: 'PM Skill Development', author: 'Government', icon: '🏛️', color: '#ef4444', description: 'Free skill training', website: 'https://www.pmkvyofficial.org' },
-  { id: 12, type: 'Library', title: 'Cochin Public Library', author: 'Municipal', icon: '📚', color: '#22c55e', hours: '10 AM - 8 PM', description: 'Ancient & digital resources', website: 'https://www.kochicorporation.lsgkerala.gov.in' },
-=======
   { id: 11, type: 'Government Scheme', title: 'PM Skill Development', author: 'Government', icon: '🏛️', color: '#ef4444', description: 'Free skill training', website: 'https://www.msde.gov.in/' },
   { id: 12, type: 'Library', title: 'Ernakulam Public Library OPAC', author: 'Municipal', icon: '📚', color: '#22c55e', hours: '10 AM - 8 PM', description: 'Ancient & digital resources', website: 'http://opac.ernakulampubliclibrary.com/' },
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
   { id: 13, type: 'Learning Center', title: 'Hyderabad University', author: 'Government', icon: '📚', color: '#667eea', courses: 210, description: 'University library', website: 'https://www.uohyd.ac.in' },
   { id: 14, type: 'Online Platform', title: 'Coursera for Development', author: 'Coursera', icon: '🌐', color: '#667eea', courses: 5000, description: 'Online courses', website: 'https://www.coursera.org' },
   { id: 15, type: 'Study Group Center', title: 'Bangalore Tech Community', author: 'Community', icon: '👥', color: '#667eea', hours: '6 PM - 9 PM', description: 'Tech study groups', website: 'https://www.meetup.com/find/?keywords=bangalore%20tech' }
@@ -45,8 +38,6 @@ export default function Education(){
   const [search, setSearch] = useState('')
   const [bookmarked, setBookmarked] = useState({})
   const [hoveredCard, setHoveredCard] = useState(null)
-<<<<<<< HEAD
-=======
   const [aiQuery, setAiQuery] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [aiLoading, setAiLoading] = useState(false)
@@ -71,7 +62,6 @@ export default function Education(){
     setAiLoading(false)
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
 
   const getToken = () => {
     try {
@@ -89,7 +79,9 @@ export default function Education(){
       if (!token) return
 
       try {
-        const res = await fetch('/api/auth/bookmarks', {
+        const API_BASE_URL = getApiBaseUrl()
+        
+        const res = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         const data = await res.json()
@@ -127,7 +119,9 @@ export default function Education(){
     if (!token) return
 
     try {
-      const response = await fetch('/api/auth/bookmarks', {
+      const API_BASE_URL = getApiBaseUrl()
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -706,8 +700,6 @@ export default function Education(){
           </div>
         </div>
       </div>
-<<<<<<< HEAD
-=======
 
       {/* AI Assistant Floating Button & Panel */}
       <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 9999 }}>
@@ -806,7 +798,6 @@ export default function Education(){
           {showAI ? '✕' : <><span style={{ fontSize: '24px' }}>🤖</span> AI Assistant</>}
         </button>
       </div>
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
     </div>
   )
 }

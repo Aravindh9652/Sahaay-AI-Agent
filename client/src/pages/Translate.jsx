@@ -361,10 +361,10 @@ export default function Translate(){
     };
 
     try {
-      console.log(`🔊 Requesting TTS for "${result}" in ${target}...`);
+      console.log(`🔊 Requesting TTS for "${result}" in ${target} (${langMap[target]})...`);
       
-      // Call backend TTS endpoint
-      const response = await fetch('http://localhost:5000/api/translate/tts', {
+      // Call backend TTS endpoint - use relative path for production compatibility
+      const response = await fetch('/api/translate/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: result, language: target })

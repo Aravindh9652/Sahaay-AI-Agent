@@ -24,8 +24,8 @@ dotenv.config()
 
 const app = express()
 app.use(cors({
-  origin: 'https://d3gd5027gtzr4j.cloudfront.net',
-  credentials: true // if you use cookies or auth headers
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://d3gd5027gtzr4j.cloudfront.net'],
+  credentials: true
 }))
 app.use(express.json())
 
@@ -43,24 +43,28 @@ async function initializeDynamoDB() {
   }
 }
 
-// Initialize on startup
-initializeDynamoDB()
-
-// ==================== INITIALIZE DEMO USER ====================
+// ==================== INITIALIZE DEMO USER IN DYNAMODB ====================
 const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
-const { loadUsers, saveUsers } = require('./services/userStore')
+const { saveUser, findUserByEmail } = require('./services/dynamodbUserStore')
 
 async function ensureDemoUser() {
   try {
-    const users = await loadUsers()
-    const demoExists = Object.values(users).find(u => u.email === 'demo@sahaay.com')
-    if (demoExists) return
+    console.log('[Init] Checking for demo user in DynamoDB...')
     
+    // Check if demo user exists in DynamoDB
+    const demoExists = await findUserByEmail('demo@sahaay.com')
+    if (demoExists) {
+      console.log('[Init] ✅ Demo user already exists in DynamoDB')
+      console.log('[Init] Login with: demo@sahaay.com / demo123')
+      return
+    }
+    
+    console.log('[Init] Creating demo user in DynamoDB...')
     const hash = await bcrypt.hash('demo123', 10)
     const nowISO = new Date().toISOString()
     const demoUser = {
-      id: 'demo_user_001',
+      userId: 'demo_user_001', // DynamoDB uses userId, not id
       name: 'Demo User',
       email: 'demo@sahaay.com',
       passwordHash: hash,
@@ -84,15 +88,24 @@ async function ensureDemoUser() {
       bookmarks: { market: [], education: [], civic: [] },
       activity: [{ type: 'signup', description: 'Demo account created', timestamp: nowISO }]
     }
-    users['demo_user_001'] = demoUser
-    await saveUsers(users)
-    console.log('[Init] Demo user created: demo@sahaay.com / demo123')
+    
+    // Save to DynamoDB
+    await saveUser(demoUser)
+    console.log('[Init] ✅ Demo user created in DynamoDB successfully!')
+    console.log('[Init] Login with: demo@sahaay.com / demo123')
   } catch (err) {
-    console.error('[Init] Failed to create demo user:', err.message)
+    console.error('[Init] ❌ Failed to create demo user in DynamoDB:', err.message)
+    console.error('[Init] Error details:', err)
   }
 }
 
-ensureDemoUser()
+// Initialize demo user after DynamoDB tables are ready
+async function initializeAll() {
+  await initializeDynamoDB()
+  await ensureDemoUser()
+}
+
+initializeAll()
 
 // ==================== HEALTH CHECK ENDPOINTS ====================
 app.get('/', (req, res) => {
@@ -142,15 +155,33 @@ app.post('/api/translate/translate', async (req, res) => {
   // Log incoming request
   console.log(`[Translation Request] Text: "${text}", Source: ${source}, Target: ${target}`)
 
-  // Check if input is romanized Indian script (for Tamil, Telugu, Bengali)
+  // Check if input is romanized Indian script (for Tamil, Telugu, Bengali, Hindi)
   const isRomanized = /^[a-zA-Z\s]+$/.test(text.trim())
   const indianLanguages = ['hi', 'ta', 'te', 'bn']
   
+  let processedText = text
   let actualSource = source
-  // If source is an Indian language and input is romanized, set source to 'en' for better translation
-  if (isRomanized && indianLanguages.includes(source)) {
-    console.log(`[Translation] Input appears to be romanized ${source}, treating as English input`)
-    actualSource = 'en'  // Treat as English -> then to target
+  
+  // If source is Telugu/Tamil/Hindi/Bengali and input is romanized, transliterate first
+  if (isRomanized && indianLanguages.includes(source) && source !== 'auto') {
+    console.log(`[Translation] Input appears to be romanized ${source}, attempting transliteration...`)
+    
+    try {
+      // Call transliteration endpoint
+      const translitRes = await fetch('http://localhost:5000/api/translate/transliterate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, language: source })
+      })
+      const translitData = await translitRes.json()
+      
+      if (translitData.transliterated) {
+        processedText = translitData.transliterated
+        console.log(`[Translation] Transliterated: "${text}" -> "${processedText}"`)
+      }
+    } catch (err) {
+      console.warn('[Translation] Transliteration failed:', err.message)
+    }
   }
 
   // Try AWS Translate first (Option A - AWS native)
@@ -163,12 +194,12 @@ app.post('/api/translate/translate', async (req, res) => {
 
   if (translateModule) {
     try {
-      const result = await translateModule.translateText(text, target, actualSource || 'auto')
-      console.log(`[Translation] AWS Translate: "${text}" -> "${result.translated}" (${target})`)
+      const result = await translateModule.translateText(processedText, target, actualSource || 'auto')
+      console.log(`[Translation] AWS Translate: "${processedText}" -> "${result.translated}" (${target})`)
       return res.json({ translated: result.translated, language: target, provider: 'aws-translate' })
     } catch (err) {
-      console.warn('[Translation] AWS Translate failed, falling back to dictionary:', err.message)
-      // Fall through to dictionary
+      console.warn('[Translation] AWS Translate failed, falling back to AI:', err.message)
+      // Fall through to AI
     }
   }
 
@@ -176,13 +207,13 @@ app.post('/api/translate/translate', async (req, res) => {
   if (useAI) {
     try {
       const bedrockClient = require('./aws/bedrockClient')
-      const translated = await bedrockClient.translateWithBedrock(text, target)
-      console.log(`[Translation AI] "${text}" -> "${translated}" (${target})`)
-      logTranslateOperation(text, source || 'auto', target, 'bedrock', 'success')
+      const translated = await bedrockClient.translateWithBedrock(processedText, target)
+      console.log(`[Translation AI] "${processedText}" -> "${translated}" (${target})`)
+      logTranslateOperation(processedText, source || 'auto', target, 'bedrock', 'success')
       return res.json({ translated, language: target, provider: 'bedrock' })
     } catch (err) {
       console.warn('[Translation AI] Bedrock translation failed, falling back to dictionary:', err.message)
-      logTranslateOperation(text, source || 'auto', target, 'bedrock', 'failed')
+      logTranslateOperation(processedText, source || 'auto', target, 'bedrock', 'failed')
     }
   }
 

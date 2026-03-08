@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 const loginStyles = `
   @keyframes shimmerBorder {
@@ -76,27 +77,20 @@ export default function Login({ setUser }){
     setLoading(true)
     setError('')
 
-    const endpoints = ['/api/auth/login', 'http://localhost:5000/api/auth/login']
+    const API_BASE_URL = getApiBaseUrl()
     let data = null
     let response = null
 
     try {
-      for (const endpoint of endpoints) {
-        try {
-          response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email, password})
-          })
-          data = await parseJsonSafely(response)
-          if (response) break
-        } catch {
-          response = null
-        }
-      }
+      response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+      })
+      data = await parseJsonSafely(response)
 
       if (!response) {
-        setError('Cannot reach the server. Please start backend with: cd server && npm run dev')
+        setError('Cannot reach the server. Please check your connection.')
         return
       }
 
@@ -134,38 +128,26 @@ export default function Login({ setUser }){
       return
     }
     
-    const endpoints = ['/api/auth/forgot-password', 'http://localhost:5000/api/auth/forgot-password']
-    let success = false
+    const API_BASE_URL = getApiBaseUrl()
     
-    for (const endpoint of endpoints) {
-      try {
-        const resp = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotEmail })
-        })
-        const data = await resp.json()
-        if (data.ok && data.token) {
-          setForgotMsg('✅ Reset token: ' + data.token + '\n\n(Your password reset token is shown above for demo purposes)')
-          setForgotStep(2)
-          success = true
-          break
-        } else if (resp.status === 404) {
-          setForgotMsg('❌ User not found with this email')
-          success = true
-          break
-        } else {
-          setForgotMsg(data.error || '❌ Error generating token')
-          success = true
-          break
-        }
-      } catch (err) {
-        console.error('Forgot password error:', err)
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      })
+      const data = await resp.json()
+      if (data.ok && data.token) {
+        setForgotMsg('✅ Reset token: ' + data.token + '\n\n(Your password reset token is shown above for demo purposes)')
+        setForgotStep(2)
+      } else if (resp.status === 404) {
+        setForgotMsg('❌ User not found with this email')
+      } else {
+        setForgotMsg(data.error || '❌ Error generating token')
       }
-    }
-    
-    if (!success) {
-      setForgotMsg('❌ Cannot reach server. Make sure backend is running on port 5000')
+    } catch (err) {
+      console.error('Forgot password error:', err)
+      setForgotMsg('❌ Cannot reach server. Please check your connection.')
     }
   }
 
@@ -177,41 +159,31 @@ export default function Login({ setUser }){
       return
     }
     
-    const endpoints = ['/api/auth/reset-password', 'http://localhost:5000/api/auth/reset-password']
-    let success = false
+    const API_BASE_URL = getApiBaseUrl()
     
-    for (const endpoint of endpoints) {
-      try {
-        const resp = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotEmail, token: forgotToken, newPassword: forgotNewPassword })
-        })
-        const data = await resp.json()
-        if (data.ok) {
-          setForgotMsg('✅ Password reset successful! Closing...')
-          setTimeout(() => {
-            setForgotStep(1)
-            setShowForgot(false)
-            setForgotMsg('')
-            setForgotEmail('')
-            setForgotToken('')
-            setForgotNewPassword('')
-          }, 1500)
-          success = true
-          break
-        } else {
-          setForgotMsg(data.error || '❌ Error resetting password')
-          success = true
-          break
-        }
-      } catch (err) {
-        console.error('Reset password error:', err)
+    try {
+      const resp = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, token: forgotToken, newPassword: forgotNewPassword })
+      })
+      const data = await resp.json()
+      if (data.ok) {
+        setForgotMsg('✅ Password reset successful! Closing...')
+        setTimeout(() => {
+          setForgotStep(1)
+          setShowForgot(false)
+          setForgotMsg('')
+          setForgotEmail('')
+          setForgotToken('')
+          setForgotNewPassword('')
+        }, 1500)
+      } else {
+        setForgotMsg(data.error || '❌ Error resetting password')
       }
-    }
-    
-    if (!success) {
-      setForgotMsg('❌ Cannot reach server. Make sure backend is running on port 5000')
+    } catch (err) {
+      console.error('Reset password error:', err)
+      setForgotMsg('❌ Cannot reach server. Please check your connection.')
     }
   }
 

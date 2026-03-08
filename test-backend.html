@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Backend Connection</title>
+</head>
+<body>
+    <h1>Backend Connection Test</h1>
+    <button onclick="testConnection()">Test Connection</button>
+    <button onclick="testLogin()">Test Login</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testConnection() {
+            const result = document.getElementById('result');
+            try {
+                const res = await fetch('http://localhost:5000/');
+                const data = await res.json();
+                result.textContent = 'SUCCESS:\n' + JSON.stringify(data, null, 2);
+            } catch (err) {
+                result.textContent = 'ERROR:\n' + err.message + '\n\nMake sure backend is running:\ncd server\nnpm run dev';
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('result');
+            try {
+                const res = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        email: 'demo@sahaay.com',
+                        password: 'demo123'
+                    })
+                });
+                const data = await res.json();
+                result.textContent = 'LOGIN RESPONSE:\n' + JSON.stringify(data, null, 2);
+            } catch (err) {
+                result.textContent = 'LOGIN ERROR:\n' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 const signupStyles = `
   @keyframes slideInDown {
@@ -96,8 +97,7 @@ export default function Signup({ setUser }){
 
     setLoading(true)
     try {
-      // Always use Lambda URL
-      const API_BASE_URL = 'https://j3va2fbe5z6jgafdppdgldxny40eozqu.lambda-url.us-east-1.on.aws'
+      const API_BASE_URL = getApiBaseUrl()
       
       const res = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',

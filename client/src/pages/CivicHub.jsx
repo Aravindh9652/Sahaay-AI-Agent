@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 // Mock government schemes database with verified apply URLs
 const civicInitiatives = [
@@ -102,6 +103,16 @@ export default function CivicHub({ user }) {
   const [showAI, setShowAI] = useState(false)
   const chatEndRef = React.useRef(null)
 
+  const getToken = () => {
+    try {
+      const raw = localStorage.getItem('sahaay_token')
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.token || null
+    } catch {
+      return null
+    }
+  }
+
   const askAI = async () => {
     if (!aiQuery.trim()) return
     const question = aiQuery.trim()
@@ -121,58 +132,15 @@ export default function CivicHub({ user }) {
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
-  const getToken = () => {
-    try {
-      const raw = localStorage.getItem('sahaay_token')
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.token || null
-    } catch {
-      return null
-    }
-  }
-
   useEffect(() => {
     const loadBookmarks = async () => {
       const token = getToken()
       if (!token) return
 
       try {
-        const res = await fetch('/api/auth/bookmarks', {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        const data = await res.json()
-        if (!res.ok || !data?.bookmarks?.civic) return
-
-        const initial = {}
-        data.bookmarks.civic.forEach((id) => {
-          initial[id] = true
-        })
-        setBookmarked(initial)
-      } catch (error) {
-        console.error('Failed to load civic bookmarks:', error)
-      }
-    }
-
-    loadBookmarks()
-  }, [])
-
-  const getToken = () => {
-    try {
-      const raw = localStorage.getItem('sahaay_token')
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.token || null
-    } catch {
-      return null
-    }
-  }
-
-  useEffect(() => {
-    const loadBookmarks = async () => {
-      const token = getToken()
-      if (!token) return
-
-      try {
-        const res = await fetch('/api/auth/bookmarks', {
+        const API_BASE_URL = getApiBaseUrl()
+        
+        const res = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         const data = await res.json()
@@ -210,7 +178,9 @@ export default function CivicHub({ user }) {
     if (!token) return
 
     try {
-      const response = await fetch('/api/auth/bookmarks', {
+      const API_BASE_URL = getApiBaseUrl()
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 const opportunities = [
   { id: 1, title: 'Junior Developer', company: 'TechStart India', status: 'Open', category: 'Jobs', salary: '₹3-5 LPA', location: 'Bangalore', coords: { lat: 12.9716, lng: 77.5946 }, deadline: 'Mar 25', views: 2450, description: 'Join our growing team as a Junior Developer', icon: '💻', careerUrl: 'https://www.linkedin.com/jobs/search/?keywords=junior%20developer%20bangalore' },
@@ -26,6 +27,16 @@ export default function Market(){
   const [showAI, setShowAI] = useState(false)
   const chatEndRef = React.useRef(null)
 
+  const getToken = () => {
+    try {
+      const raw = localStorage.getItem('sahaay_token')
+      const parsed = raw ? JSON.parse(raw) : null
+      return parsed?.token || null
+    } catch {
+      return null
+    }
+  }
+
   const askAI = async () => {
     if (!aiQuery.trim()) return
     const question = aiQuery.trim()
@@ -45,15 +56,7 @@ export default function Market(){
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
   }
 
-  const getToken = () => {
-    try {
-      const raw = localStorage.getItem('sahaay_token')
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.token || null
-    } catch {
-      return null
-    }
-  }
+  // ...existing code...
 
   useEffect(() => {
     const loadBookmarks = async () => {
@@ -80,15 +83,7 @@ export default function Market(){
     loadBookmarks()
   }, [])
 
-  const getToken = () => {
-    try {
-      const raw = localStorage.getItem('sahaay_token')
-      const parsed = raw ? JSON.parse(raw) : null
-      return parsed?.token || null
-    } catch {
-      return null
-    }
-  }
+  // ...existing code...
 
   useEffect(() => {
     const loadBookmarks = async () => {
@@ -96,7 +91,9 @@ export default function Market(){
       if (!token) return
 
       try {
-        const res = await fetch('/api/auth/bookmarks', {
+        const API_BASE_URL = getApiBaseUrl()
+        
+        const res = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         const data = await res.json()
@@ -127,15 +124,17 @@ export default function Market(){
   const likedCount = opportunities.filter((opp) => bookmarked[opp.id]).length
 
   const toggleBookmark = async (id) => {
-    const token = getToken()
-    const currentlyLiked = Boolean(bookmarked[id])
+    const token = getToken();
+    const currentlyLiked = Boolean(bookmarked[id]);
 
-    setBookmarked((previous) => ({ ...previous, [id]: !currentlyLiked }))
+    setBookmarked((previous) => ({ ...previous, [id]: !currentlyLiked }));
 
-    if (!token) return
+    if (!token) return;
 
     try {
-      const response = await fetch('/api/auth/bookmarks', {
+      const API_BASE_URL = getApiBaseUrl()
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/bookmarks`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -146,14 +145,14 @@ export default function Market(){
           itemId: id,
           action: currentlyLiked ? 'remove' : 'add'
         })
-      })
+      });
 
       if (!response.ok) {
-        setBookmarked((previous) => ({ ...previous, [id]: currentlyLiked }))
+        setBookmarked((previous) => ({ ...previous, [id]: currentlyLiked }));
       }
     } catch (error) {
-      setBookmarked((previous) => ({ ...previous, [id]: currentlyLiked }))
-      console.error('Failed to update market bookmark:', error)
+      setBookmarked((previous) => ({ ...previous, [id]: currentlyLiked }));
+      console.error('Failed to update market bookmark:', error);
     }
   }
 
@@ -229,39 +228,19 @@ export default function Market(){
       }}></div>
 
       <div style={{maxWidth: '1400px', margin: '0 auto', position: 'relative', zIndex: 1}}>
-<<<<<<< HEAD
         <div style={{ position: 'absolute', top: '0', right: '0', zIndex: 2 }}>
           <button
             onClick={() => setFilter(filter === 'Liked' ? 'All' : 'Liked')}
             style={{
               padding: '10px 16px',
-=======
-        {/* Liked Opportunities Button */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginBottom: '24px',
-          animation: 'slideInDown 0.6s ease-out'
-        }}>
-          <button
-            onClick={() => setFilter(filter === 'Liked' ? 'All' : 'Liked')}
-            style={{
-              padding: '8px 16px',
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
               background: filter === 'Liked' ? '#ef4444' : '#fff',
               color: filter === 'Liked' ? 'white' : '#ef4444',
               border: '2px solid #ef4444',
               borderRadius: '999px',
               cursor: 'pointer',
               fontWeight: '700',
-<<<<<<< HEAD
               fontSize: '0.95rem',
               transition: 'all 0.3s'
-=======
-              fontSize: '0.85rem',
-              transition: 'all 0.3s',
-              whiteSpace: 'nowrap'
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
             }}
           >
             {filter === 'Liked' ? `❤️ Showing Liked (${likedCount})` : `🤍 Liked Opportunities (${likedCount})`}
@@ -272,11 +251,7 @@ export default function Market(){
         <div style={{
           animation: 'slideInDown 0.8s ease-out forwards',
           marginBottom: '40px',
-<<<<<<< HEAD
           marginTop: '56px'
-=======
-          marginTop: '0'
->>>>>>> cd16ed6 (Initial commit of working SAHAAY project)
         }}>
           <h1 style={{
             fontSize: '3.5rem',
@@ -529,10 +504,10 @@ export default function Market(){
                     flexShrink: 0
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.transform = 'scale(1.2) rotate(10deg)'
+                    e.target.style.transform = 'scale(1.2) rotate(10deg)';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.transform = 'scale(1) rotate(0deg)'
+                    e.target.style.transform = 'scale(1) rotate(0deg)';
                   }}
                 >
                   {bookmarked[opp.id] ? '❤️' : '🤍'}

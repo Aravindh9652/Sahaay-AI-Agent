@@ -116,7 +116,7 @@ function AppContent(){
           <Route path="/market" element={<Market />} />
           <Route path="/translate" element={<Translate />} />
           <Route path="/ai-console" element={<AIConsole />} />
-          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Login setUser={setUser} />} />
+          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Home user={user} />} />
           <Route path="/profile" element={<Profile setUser={setUser} />} />
         </Routes>
       </main>
