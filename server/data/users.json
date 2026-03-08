@@ -1,0 +1,51 @@
+{
+  "demo_user_001": {
+    "id": "demo_user_001",
+    "name": "Demo User",
+    "email": "demo@sahaay.com",
+    "passwordHash": "$2a$10$6id7HgzgexNf79oEN2KTX.H5NoWQFxpxPKG.KMI6BDQpX/oQ9/9jW",
+    "verified": true,
+    "createdAt": "2026-03-08T05:18:54.951Z",
+    "lastLogin": "2026-03-08T05:18:54.951Z",
+    "profile": {
+      "name": "Demo User",
+      "email": "demo@sahaay.com",
+      "phone": "+91-9999999999",
+      "location": "India",
+      "language": "en",
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=demo_user_001",
+      "bio": "Welcome to SAHAAY! Explore government schemes and services.",
+      "skills": [
+        "Research",
+        "Learning"
+      ],
+      "interests": [
+        "Government Schemes",
+        "Education",
+        "Healthcare"
+      ],
+      "joinedDate": "2026-03-08T05:18:54.951Z",
+      "isActive": true
+    },
+    "progress": {
+      "education": {},
+      "market": {},
+      "civic": {},
+      "translate": {
+        "history": []
+      }
+    },
+    "bookmarks": {
+      "market": [],
+      "education": [],
+      "civic": []
+    },
+    "activity": [
+      {
+        "type": "signup",
+        "description": "Demo account created",
+        "timestamp": "2026-03-08T05:18:54.951Z"
+      }
+    ]
+  }
+}

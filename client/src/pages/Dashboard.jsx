@@ -1,0 +1,1264 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { useLanguage } from '../i18n/LanguageContext'
+import { useNavigate } from 'react-router-dom'
+import { jsPDF } from 'jspdf'
+
+const dashboardStyles = `
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-30px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes countUp {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .stat-card {
+    animation: scaleIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .stat-card:nth-child(1) { animation-delay: 0.1s; }
+  .stat-card:nth-child(2) { animation-delay: 0.2s; }
+  .stat-card:nth-child(3) { animation-delay: 0.3s; }
+  .stat-card:nth-child(4) { animation-delay: 0.4s; }
+  .stat-card:nth-child(5) { animation-delay: 0.5s; }
+
+  .stat-number {
+    animation: countUp 0.8s ease-out;
+  }
+`
+
+export default function Dashboard({ user }) {
+  const { t } = useLanguage()
+
+  const [profile, setProfile] = useState(null)
+  const [progress, setProgress] = useState(null)
+  const [bookmarks, setBookmarks] = useState(null)
+  const [activity, setActivity] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchUserData()
+  }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setThemeIndex((prev) => (prev + 1) % themes.length)
+    }, 7000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const fetchUserData = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${user.token}` }
+      const [profileRes, progressRes, bookmarksRes, activityRes] = await Promise.all([
+        fetch('/api/auth/profile', { headers }),
+        fetch('/api/auth/progress', { headers }),
+        fetch('/api/auth/bookmarks', { headers }),
+        fetch('/api/auth/activity', { headers })
+      ])
+
+      const [profileData, progressData, bookmarksData, activityData] = await Promise.all([
+        profileRes.json(),
+        progressRes.json(),
+        bookmarksRes.json(),
+        activityRes.json()
+      ])
+
+      if (profileData.profile) {
+        setProfile(profileData.profile)
+        setForm({
+          name: profileData.profile.name || user?.name || '',
+          phone: profileData.profile.phone || '',
+          location: profileData.profile.location || '',
+          language: profileData.profile.language || 'en',
+          bio: profileData.profile.bio || '',
+          skills: (profileData.profile.skills || []).join(', '),
+          interests: (profileData.profile.interests || []).join(', ')
+        })
+      }
+
+      if (progressData.progress) setProgress(progressData.progress)
+      if (bookmarksData.bookmarks) setBookmarks(bookmarksData.bookmarks)
+      if (activityData.activity) setActivity(activityData.activity)
+    } catch (error) {
+      setSaveMessage('Failed to load dashboard data')
+      console.error('Error fetching user data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEdit = () => {
+    navigate('/profile')
+  }
+
+  const handleDownloadHandbook = () => {
+    const doc = new jsPDF()
+    let y = 20
+    doc.setFontSize(18)
+    doc.text(`${t('dashboardWelcome')} ${user?.name || user?.email}`, 14, y)
+    y += 10
+    doc.setFontSize(12)
+    doc.text(t('dashboardActivity'), 14, y)
+    y += 12
+
+    doc.setFontSize(14)
+    doc.text(t('learningProgress'), 14, y)
+      setThemeIndex((prev) => (prev + 1) % (themes?.length || 1))
+    doc.setFontSize(12)
+    doc.text(`${t('learning.courseTitle')} — ${t('learning.progressPercent')}`, 16, y)
+    y += 10
+
+    doc.setFontSize(14)
+    doc.text(t('savedItems'), 14, y)
+    y += 8
+    doc.setFontSize(12)
+    doc.text(`• ${t('saved.pmKisan')}`, 16, y)
+    y += 8
+    doc.text(`• ${t('saved.farmerMarket')}`, 16, y)
+    y += 8
+    doc.text(`• ${t('saved.onlineCourse')}`, 16, y)
+    y += 12
+
+    doc.setFontSize(14)
+    doc.text(t('activityMonth'), 14, y)
+    y += 8
+    doc.setFontSize(12)
+    doc.text(`💬 ${t('messages')}: 12`, 16, y)
+    y += 8
+    doc.text(`🎓 ${t('lessons')}: 5`, 16, y)
+    y += 8
+    doc.text(`💼 ${t('queries')}: 3`, 16, y)
+    y += 12
+
+    doc.setFontSize(14)
+    doc.text(t('notifications'), 14, y)
+    y += 8
+    doc.setFontSize(12)
+    doc.text(`${t('notification.newSchemeLabel')}: ${t('newScheme')}`, 16, y)
+    y += 8
+    doc.text(`${t('notification.courseUpdateLabel')}: ${t('courseUpdate')}`, 16, y)
+    y += 12
+
+    doc.setFontSize(14)
+    doc.text(t('yourInfo'), 14, y)
+    y += 8
+    doc.setFontSize(12)
+    doc.text(`${t('label.email')}: ${user?.email || ''}`, 16, y)
+    y += 8
+    doc.text(`${t('label.status')}: ${t('verified')}`, 16, y)
+    y += 8
+    doc.text(`${t('label.language')}: ${t(`lang.${language}`)}`, 16, y)
+
+    doc.setFontSize(10)
+    doc.text('Generated by Sahaay', 14, 280)
+
+    doc.save('Sahaay_Handbook.pdf')
+  }
+
+  const getProgressStats = () => {
+    if (!progress) return { total: 0, completed: 0, percentage: 0 }
+
+    const educationCount = Object.keys(progress.education || {}).length
+    const marketCount = Object.keys(progress.market || {}).length
+    const civicCount = Object.keys(progress.civic || {}).length
+    const total = educationCount + marketCount + civicCount
+
+    const completed = total
+    const percentage = total > 0 ? Math.round((completed / Math.max(total, 1)) * 100) : 0
+
+    return { total, completed, percentage }
+  }
+
+  const getBookmarkStats = () => {
+    if (!bookmarks) return { total: 0 }
+
+    const total = (bookmarks.market?.length || 0) +
+                 (bookmarks.education?.length || 0) +
+                 (bookmarks.civic?.length || 0)
+    return { total }
+  }
+
+  const progressStats = getProgressStats()
+  const bookmarkStats = getBookmarkStats()
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,249,250,0.98))',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '24px',
+          padding: '48px 40px',
+          textAlign: 'center',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.15)',
+          border: '1px solid rgba(102,126,234,0.1)'
+        }}>
+          <div style={{fontSize: '64px', marginBottom: '20px', animation: 'float 3s ease-in-out infinite'}}>🔄</div>
+          <h2 style={{color: '#1a1a2e', marginBottom: '12px', fontSize: '28px', fontWeight: '800'}}>
+            Loading Dashboard...
+          </h2>
+          <p style={{color: '#6b7280', fontSize: '15px', fontWeight: '500'}}>
+            Fetching your personalized analytics
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+        padding: '40px 20px',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        <style>{dashboardStyles}</style>
+        {/* Animated background elements */}
+        <div style={{
+          position: 'fixed',
+          top: '-50%',
+          right: '-10%',
+          width: '500px',
+          height: '500px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.1), transparent)',
+          borderRadius: '50%',
+          animation: 'float 6s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}></div>
+
+        <div style={{maxWidth: '1400px', margin: '0 auto', position: 'relative', zIndex: 1}}>
+
+          {/* Hero Section */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,249,250,0.95))',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '24px',
+            padding: '40px',
+            marginBottom: '40px',
+            border: '1px solid rgba(102,126,234,0.1)',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.1)',
+            animation: 'fadeInUp 0.8s ease-out'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap'}}>
+              <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '20px',
+                background: `url(${profile?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default'})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                border: '3px solid #667eea',
+                boxShadow: '0 10px 30px rgba(102,126,234,0.3)',
+                animation: 'float 3s ease-in-out infinite'
+              }}></div>
+              <div>
+                <h1 style={{
+                  fontSize: '36px',
+                  fontWeight: '800',
+                  color: '#1a1a2e',
+                  marginBottom: '8px',
+                  letterSpacing: '-1px'
+                }}>
+                  Welcome back, {profile?.name || user?.name || user?.email}! 👋
+                </h1>
+                <p style={{
+                  color: '#6b7280',
+                  fontSize: '15px',
+                  lineHeight: '1.6',
+                  marginBottom: '16px'
+                }}>
+                  {t('dashboardActivity')} — Your personalized learning journey
+                </p>
+                <div style={{display: 'flex', gap: '12px', flexWrap: 'wrap'}}>
+                  <span style={{
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.05))',
+                    color: '#059669',
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    📚 {progressStats.completed} Courses Started
+                  </span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.05))',
+                    color: '#b45309',
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    border: '1px solid rgba(245,158,11,0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    💾 {bookmarkStats.total} Saved Items
+                  </span>
+                  <span style={{
+                    background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(29,78,216,0.05))',
+                    color: '#1d4ed8',
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    border: '1px solid rgba(59,130,246,0.2)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    📍 {profile?.location || 'India'}
+                  </span>
+                </div>
+              </div>
+              <div style={{marginLeft: 'auto', display: 'flex', gap: '12px'}}>
+                <button
+                  onClick={handleEdit}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    color: 'white',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'all 0.3s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-2px)'
+                    e.target.style.boxShadow = '0 8px 20px rgba(102,126,234,0.3)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)'
+                    e.target.style.boxShadow = 'none'
+                  }}
+                >
+                  ✏️ Edit Profile
+                </button>
+                <button
+                  onClick={handleDownloadHandbook}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    border: '2px solid #667eea',
+                    background: 'transparent',
+                    color: '#667eea',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'all 0.3s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#667eea'
+                    e.target.style.color = 'white'
+                    e.target.style.transform = 'translateY(-2px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = 'transparent'
+                    e.target.style.color = '#667eea'
+                    e.target.style.transform = 'translateY(0)'
+                  }}
+                >
+                  📥 Download
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '24px',
+            marginBottom: '40px'
+          }}>
+            {[
+              { icon: '📚', title: 'Courses', value: progressStats.completed, color: '#10b981', bgColor: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(5,150,105,0.05))' },
+              { icon: '💾', title: 'Bookmarks', value: bookmarkStats.total, color: '#f59e0b', bgColor: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.05))' },
+              { icon: '📊', title: 'Activity', value: activity.length, color: '#3b82f6', bgColor: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(29,78,216,0.05))' },
+              { icon: '🎯', title: 'Progress', value: `${progressStats.percentage}%`, color: '#8b5cf6', bgColor: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(124,58,237,0.05))' },
+              { icon: '⭐', title: 'Streak', value: '7', color: '#ef4444', bgColor: 'linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05))' }
+            ].map((stat, idx) => (
+              <div
+                key={idx}
+                className="stat-card"
+                style={{
+                  background: stat.bgColor,
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '16px',
+                  padding: '28px 24px',
+                  border: `1px solid rgba(102,126,234,0.1)`,
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  opacity: 0,
+                  animation: `scaleIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) ${0.1 * (idx + 1)}s forwards`
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-8px)'
+                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(102,126,234,0.2)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.08)'
+                }}
+              >
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '14px',
+                  background: stat.bgColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '28px',
+                  margin: '0 auto 16px auto',
+                  boxShadow: `0 4px 15px ${stat.color}33`,
+                  animation: 'float 3s ease-in-out infinite'
+                }}>
+                  {stat.icon}
+                </div>
+                <h3 className="stat-number" style={{
+                  fontSize: '32px',
+                  fontWeight: '800',
+                  color: stat.color,
+                  marginBottom: '6px',
+                  letterSpacing: '-1px'
+                }}>
+                  {stat.value}
+                </h3>
+                <p style={{
+                  color: '#6b7280',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  {stat.title}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Content Sections */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr',
+            gap: '28px',
+            marginBottom: '40px'
+          }}>
+            {/* Progress Summary */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,249,250,0.95))',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              padding: '28px',
+              border: '1px solid rgba(102,126,234,0.1)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+              animation: 'fadeInUp 0.8s ease-out 0.3s both'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#1a1a2e',
+                marginBottom: '20px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                borderBottom: '3px solid #667eea',
+                paddingBottom: '12px'
+              }}>
+                📈 Learning Progress
+              </h3>
+              <div style={{marginBottom: '24px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px'}}>
+                  <span style={{color: '#6b7280', fontWeight: '600', fontSize: '14px'}}>Overall Completion</span>
+                  <span style={{color: '#667eea', fontWeight: '700', fontSize: '14px'}}>{progressStats.percentage}%</span>
+                </div>
+                <div style={{
+                  width: '100%',
+                  height: '12px',
+                  background: '#e5e7eb',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <div style={{
+                    width: `${progressStats.percentage}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #667eea, #764ba2)',
+                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 0 10px rgba(102,126,234,0.4)',
+                    borderRadius: '10px'
+                  }}></div>
+                </div>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '16px'
+              }}>
+                <div style={{background: 'rgba(16,185,129,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.1)'}}>
+                  <p style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', marginBottom: '8px'}}>Education</p>
+                  <p style={{color: '#059669', fontSize: '24px', fontWeight: '800'}}>{Object.keys(progress?.education || {}).length}</p>
+                </div>
+                <div style={{background: 'rgba(245,158,11,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(245,158,11,0.1)'}}>
+                  <p style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', marginBottom: '8px'}}>Market</p>
+                  <p style={{color: '#b45309', fontSize: '24px', fontWeight: '800'}}>{Object.keys(progress?.market || {}).length}</p>
+                </div>
+                <div style={{background: 'rgba(59,130,246,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(59,130,246,0.1)'}}>
+                  <p style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', marginBottom: '8px'}}>Civic</p>
+                  <p style={{color: '#1d4ed8', fontSize: '24px', fontWeight: '800'}}>{Object.keys(progress?.civic || {}).length}</p>
+                </div>
+                <div style={{background: 'rgba(139,92,246,0.05)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.1)'}}>
+                  <p style={{color: '#6b7280', fontSize: '12px', fontWeight: '600', marginBottom: '8px'}}>Translate</p>
+                  <p style={{color: '#7c3aed', fontSize: '24px', fontWeight: '800'}}>0</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,249,250,0.95))',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              padding: '28px',
+              border: '1px solid rgba(102,126,234,0.1)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+              animation: 'fadeInUp 0.8s ease-out 0.4s both'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#1a1a2e',
+                marginBottom: '20px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                borderBottom: '3px solid #667eea',
+                paddingBottom: '12px'
+              }}>
+                🎯 Quick Links
+              </h3>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                {[
+                  { icon: '📚', label: 'Education', href: '/education' },
+                  { icon: '💼', label: 'Market', href: '/market' },
+                  { icon: '🏛️', label: 'Civic Hub', href: '/civichub' },
+                  { icon: '🌐', label: 'Translate', href: '/translate' }
+                ].map((link, idx) => (
+                  <a
+                    key={idx}
+                    href={link.href}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '14px 16px',
+                      background: 'linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(102,126,234,0.1)',
+                      textDecoration: 'none',
+                      color: '#1a1a2e',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #667eea, #764ba2)'
+                      e.currentTarget.style.color = 'white'
+                      e.currentTarget.style.transform = 'translateX(8px)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, rgba(102,126,234,0.05), rgba(118,75,162,0.05))'
+                      e.currentTarget.style.color = '#1a1a2e'
+                      e.currentTarget.style.transform = 'translateX(0)'
+                    }}
+                  >
+                    <span style={{fontSize: '20px'}}>{link.icon}</span>
+                    <span>{link.label}</span>
+                    <span style={{marginLeft: 'auto', fontSize: '16px'}}>→</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          {activity.length > 0 && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,249,250,0.95))',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              padding: '28px',
+              border: '1px solid rgba(102,126,234,0.1)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+              animation: 'fadeInUp 0.8s ease-out 0.5s both'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#1a1a2e',
+                marginBottom: '20px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                borderBottom: '3px solid #667eea',
+                paddingBottom: '12px'
+              }}>
+                📅 Recent Activity
+              </h3>
+              <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                {activity.slice(0, 5).map((item, idx) => (
+                  <div key={idx} style={{
+                    padding: '12px 16px',
+                    background: 'rgba(102,126,234,0.03)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(102,126,234,0.1)',
+                    opacity: 0,
+                    animation: `fadeInUp 0.6s ease-out ${0.05 * (idx + 1)}s forwards`
+                  }}>
+                    <p style={{color: '#1a1a2e', fontWeight: '600', marginBottom: '4px'}}>{item.description}</p>
+                    <p style={{color: '#6b7280', fontSize: '12px'}}>{item.page} • {new Date(item.timestamp).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Stats Overview */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '24px',
+          marginBottom: '40px'
+        }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '24px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              margin: '0 auto 16px auto'
+            }}>
+              📚
+            </div>
+            <h3 style={{
+              fontSize: '2rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              marginBottom: '8px'
+            }}>
+              {progressStats.completed}
+            </h3>
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.9rem'
+            }}>
+              {t('coursesStarted')}
+            </p>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '24px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              margin: '0 auto 16px auto'
+            }}>
+              💾
+            </div>
+            <h3 style={{
+              fontSize: '2rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              marginBottom: '8px'
+            }}>
+              {bookmarkStats.total}
+            </h3>
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.9rem'
+            }}>
+              {t('savedItems')}
+            </p>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '24px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              margin: '0 auto 16px auto'
+            }}>
+              📊
+            </div>
+            <h3 style={{
+              fontSize: '2rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              marginBottom: '8px'
+            }}>
+              {activity.length}
+            </h3>
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.9rem'
+            }}>
+              {t('activityMonth')}
+            </p>
+          </div>
+
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '24px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              margin: '0 auto 16px auto'
+            }}>
+              🎯
+            </div>
+            <h3 style={{
+              fontSize: '2rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              marginBottom: '8px'
+            }}>
+              {progressStats.percentage}%
+            </h3>
+            <p style={{
+              color: '#6b7280',
+              fontSize: '0.9rem'
+            }}>
+              {t('learningProgress')}
+            </p>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '24px',
+          marginBottom: '40px'
+        }}>
+
+          {/* Learning Progress */}
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '32px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px'}}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                📚
+              </div>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1f2937'
+              }}>
+                {t('learningProgress')}
+              </h3>
+            </div>
+
+            <div style={{marginBottom: '24px'}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '8px'}}>
+                <span style={{color: '#6b7280', fontSize: '0.9rem'}}>Overall Progress</span>
+                <span style={{color: '#10b981', fontWeight: '600', fontSize: '0.9rem'}}>{progressStats.percentage}%</span>
+              </div>
+              <div style={{
+                background: 'rgba(229,231,235,0.5)',
+                height: '12px',
+                borderRadius: '6px',
+                overflow: 'hidden',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  height: '100%',
+                  width: `${progressStats.percentage}%`,
+                  transition: 'width 0.5s ease',
+                  borderRadius: '6px',
+                  boxShadow: '0 0 10px rgba(16,185,129,0.3)'
+                }}></div>
+              </div>
+            </div>
+
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px'}}>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05))',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(59,130,246,0.2)'
+              }}>
+                <div style={{fontSize: '1.5rem', fontWeight: '700', color: '#3b82f6', marginBottom: '4px'}}>
+                  {Object.keys(progress?.education || {}).length}
+                </div>
+                <div style={{fontSize: '0.8rem', color: '#6b7280'}}>Education</div>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.05))',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(245,158,11,0.2)'
+              }}>
+                <div style={{fontSize: '1.5rem', fontWeight: '700', color: '#f59e0b', marginBottom: '4px'}}>
+                  {Object.keys(progress?.market || {}).length}
+                </div>
+                <div style={{fontSize: '0.8rem', color: '#6b7280'}}>Market</div>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(139,92,246,0.05))',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(139,92,246,0.2)'
+              }}>
+                <div style={{fontSize: '1.5rem', fontWeight: '700', color: '#8b5cf6', marginBottom: '4px'}}>
+                  {Object.keys(progress?.civic || {}).length}
+                </div>
+                <div style={{fontSize: '0.8rem', color: '#6b7280'}}>Civic</div>
+              </div>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(236,72,153,0.1), rgba(236,72,153,0.05))',
+                padding: '16px',
+                borderRadius: '12px',
+                border: '1px solid rgba(236,72,153,0.2)'
+              }}>
+                <div style={{fontSize: '1.5rem', fontWeight: '700', color: '#ec4899', marginBottom: '4px'}}>
+                  {progress?.translate?.history?.length || 0}
+                </div>
+                <div style={{fontSize: '0.8rem', color: '#6b7280'}}>Translate</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '32px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px'}}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                📊
+              </div>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1f2937'
+              }}>
+                {t('activityMonth')}
+              </h3>
+            </div>
+
+            <div style={{maxHeight: '300px', overflowY: 'auto'}}>
+              {activity.length > 0 ? (
+                activity.slice(0, 10).map((item, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '12px 0',
+                    borderBottom: index < activity.length - 1 ? '1px solid #e5e7eb' : 'none'
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '14px'
+                    }}>
+                      {item.type === 'login' ? '🔑' :
+                       item.type === 'bookmark' ? '💾' :
+                       item.type === 'progress' ? '📚' :
+                       item.type === 'translate' ? '🌐' : '📝'}
+                    </div>
+                    <div style={{flex: 1}}>
+                      <div style={{
+                        fontSize: '0.9rem',
+                        color: '#1f2937',
+                        fontWeight: '500',
+                        marginBottom: '2px'
+                      }}>
+                        {item.description || item.type}
+                      </div>
+                      <div style={{
+                        fontSize: '0.8rem',
+                        color: '#6b7280'
+                      }}>
+                        {new Date(item.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  color: '#6b7280'
+                }}>
+                  <div style={{fontSize: '48px', marginBottom: '16px'}}>📭</div>
+                  <p>No recent activity yet. Start exploring to see your activity here!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Section */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+          gap: '24px'
+        }}>
+
+          {/* Saved Items */}
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '32px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px'}}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                💾
+              </div>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1f2937'
+              }}>
+                {t('savedItems')}
+              </h3>
+            </div>
+
+            {bookmarkStats.total > 0 ? (
+              <div style={{display: 'grid', gap: '12px'}}>
+                {bookmarks?.market?.length > 0 && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.05))',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(245,158,11,0.2)'
+                  }}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                      <span style={{fontSize: '20px'}}>💼</span>
+                      <div>
+                        <div style={{fontWeight: '600', color: '#1f2937', fontSize: '0.9rem'}}>
+                          {bookmarks.market.length} Market Opportunities
+                        </div>
+                        <div style={{fontSize: '0.8rem', color: '#6b7280'}}>
+                          Business opportunities saved
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {bookmarks?.education?.length > 0 && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05))',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(16,185,129,0.2)'
+                  }}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                      <span style={{fontSize: '20px'}}>🎓</span>
+                      <div>
+                        <div style={{fontWeight: '600', color: '#1f2937', fontSize: '0.9rem'}}>
+                          {bookmarks.education.length} Learning Resources
+                        </div>
+                        <div style={{fontSize: '0.8rem', color: '#6b7280'}}>
+                          Courses and tutorials saved
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {bookmarks?.civic?.length > 0 && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05))',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(59,130,246,0.2)'
+                  }}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                      <span style={{fontSize: '20px'}}>🏛️</span>
+                      <div>
+                        <div style={{fontWeight: '600', color: '#1f2937', fontSize: '0.9rem'}}>
+                          {bookmarks.civic.length} Civic Services
+                        </div>
+                        <div style={{fontSize: '0.8rem', color: '#6b7280'}}>
+                          Government services bookmarked
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '40px 20px',
+                color: '#6b7280'
+              }}>
+                <div style={{fontSize: '48px', marginBottom: '16px'}}>📚</div>
+                <p>No saved items yet. Start exploring and bookmark what interests you!</p>
+              </div>
+            )}
+          </div>
+
+          {/* Profile & Actions */}
+          <div style={{
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '32px',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px'}}>
+              <div style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                👤
+              </div>
+              <h3 style={{
+                margin: 0,
+                fontSize: '1.5rem',
+                fontWeight: '700',
+                color: '#1f2937'
+              }}>
+                {t('yourInfo')}
+              </h3>
+            </div>
+
+            <div style={{marginBottom: '24px'}}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px'}}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: `url(${profile?.avatar})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }}></div>
+                <div>
+                  <div style={{fontWeight: '600', color: '#1f2937', fontSize: '1rem'}}>
+                    {profile?.name || user?.name}
+                  </div>
+                  <div style={{fontSize: '0.8rem', color: '#6b7280'}}>
+                    {profile?.email || user?.email}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{display: 'grid', gap: '8px', fontSize: '0.9rem'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#6b7280'}}>{t('label.status')}:</span>
+                  <span style={{color: '#10b981', fontWeight: '600'}}>✓ {t('verified')}</span>
+                </div>
+                <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                  <span style={{color: '#6b7280'}}>{t('label.language')}:</span>
+                  <span style={{fontWeight: '600'}}>{t(`lang.${language}`)}</span>
+                </div>
+                {profile?.location && (
+                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <span style={{color: '#6b7280'}}>Location:</span>
+                    <span style={{fontWeight: '600'}}>{profile.location}</span>
+                  </div>
+                )}
+                {profile?.phone && (
+                  <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                    <span style={{color: '#6b7280'}}>Phone:</span>
+                    <span style={{fontWeight: '600'}}>{profile.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{display: 'grid', gap: '12px'}}>
+              <button
+                onClick={handleEdit}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                  color: 'white',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 15px rgba(139,92,246,0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'translateY(-2px)'
+                  e.target.style.boxShadow = '0 8px 25px rgba(139,92,246,0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'translateY(0)'
+                  e.target.style.boxShadow = '0 4px 15px rgba(139,92,246,0.3)'
+                }}
+              >
+                ✏️ {t('editProfile')}
+              </button>
+              <button
+                onClick={handleDownloadHandbook}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: '2px solid #e5e7eb',
+                  background: 'transparent',
+                  color: '#6b7280',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.borderColor = '#8b5cf6'
+                  e.target.style.color = '#8b5cf6'
+                  e.target.style.transform = 'translateY(-2px)'
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.borderColor = '#e5e7eb'
+                  e.target.style.color = '#6b7280'
+                  e.target.style.transform = 'translateY(0)'
+                }}
+              >
+                📄 {t('downloadHandbook')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+  )
+}

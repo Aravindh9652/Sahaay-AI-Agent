@@ -1,0 +1,5 @@
+# Enforce LF line endings for all files
+* text eol=lf
+
+# Optionally, enforce LF for specific file
+server/data/users.json text eol=lf

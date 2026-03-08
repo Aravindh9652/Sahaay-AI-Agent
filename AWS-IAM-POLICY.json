@@ -1,0 +1,96 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockInvoke",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:*:ACCOUNT_ID:foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+        "arn:aws:bedrock:*:ACCOUNT_ID:foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+      ]
+    },
+    {
+      "Sid": "DynamoDBReadWrite",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:UpdateItem",
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:ACCOUNT_ID:table/sahaay-queries",
+        "arn:aws:dynamodb:*:ACCOUNT_ID:table/sahaay-users",
+        "arn:aws:dynamodb:*:ACCOUNT_ID:table/sahaay-saved-schemes"
+      ]
+    },
+    {
+      "Sid": "S3DocumentAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:HeadBucket",
+        "s3:HeadObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::sahaay-documents",
+        "arn:aws:s3:::sahaay-documents/*"
+      ]
+    },
+    {
+      "Sid": "S3DocumentUpload",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": [
+        "arn:aws:s3:::sahaay-documents/schemes/*",
+        "arn:aws:s3:::sahaay-documents/uploads/*",
+        "arn:aws:s3:::sahaay-documents/data/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:ACCOUNT_ID:*"
+    },
+    {
+      "Sid": "KMSEncryption",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "arn:aws:kms:*:ACCOUNT_ID:key/*",
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": [
+            "s3.*.amazonaws.com",
+            "dynamodb.*.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "XRayWrite",
+      "Effect": "Allow",
+      "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
