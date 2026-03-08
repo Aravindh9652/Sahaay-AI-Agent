@@ -363,91 +363,56 @@ export default function Translate(){
     };
 
     try {
-      console.log(`🔊 Requesting TTS for "${result}" in ${target} (${langMap[target]})...`);
+      console.log(`🔊 Speaking: "${result}" in ${langMap[target]}`);
       
-      const API_BASE_URL = getApiBaseUrl();
-      
-      // Build direct Google TTS URL
-      const langCodes = {
-        'en': 'en',
-        'hi': 'hi',
-        'ta': 'ta',
-        'te': 'te',
-        'bn': 'bn'
-      };
-      
-      const langCode = langCodes[target] || 'en';
-      const encodedText = encodeURIComponent(result);
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${langCode}&client=tw-ob`;
-      
-      console.log(`🔊 Using direct Google TTS URL`);
-      
-      // Create audio element and play directly from Google
-      const audio = new Audio(ttsUrl);
-      
-      audio.onloadstart = () => {
-        console.log(`🔊 Loading audio for ${langMap[target]}...`);
-      };
-      
-      audio.oncanplay = () => {
-        console.log(`🔊 Audio ready to play`);
-      };
-      
-      audio.onended = () => {
-        console.log(`🔊 Audio playback completed`);
-      };
-      
-      audio.onerror = (e) => {
-        console.error('🔊 Audio error:', e);
-        // Fallback to server proxy
-        tryServerTTS();
-      };
-      
-      await audio.play();
-      console.log(`🔊 Playing audio for ${langMap[target]}`);
-      
-    } catch (err) {
-      console.error('🔊 Direct TTS failed:', err);
-      // Try server proxy as fallback
-      tryServerTTS();
-    }
-    
-    async function tryServerTTS() {
-      try {
-        console.log(`🔊 Trying server TTS proxy...`);
-        const API_BASE_URL = getApiBaseUrl();
-        const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ text: result, language: target })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        const audioBlob = await response.blob();
-        console.log(`🔊 Server audio blob size: ${audioBlob.size} bytes`);
+      // Use browser's built-in speech synthesis
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
         
-        if (audioBlob.size === 0) {
-          throw new Error('Empty audio response');
-        }
-
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
+        const utterance = new SpeechSynthesisUtterance(result);
         
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
+        // Set language codes
+        const langCodes = {
+          'en': 'en-US',
+          'hi': 'hi-IN',
+          'ta': 'ta-IN',
+          'te': 'te-IN',
+          'bn': 'bn-IN'
         };
         
-        await audio.play();
-        console.log(`🔊 Playing server audio`);
-      } catch (err) {
-        console.error('🔊 Server TTS failed:', err);
-        alert(`🔊 Sorry, audio playback failed. Please try again.`);
+        utterance.lang = langCodes[target] || 'en-US';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        
+        utterance.onstart = () => {
+          console.log(`🔊 Started speaking in ${langMap[target]}`);
+        };
+        
+        utterance.onend = () => {
+          console.log(`🔊 Finished speaking`);
+        };
+        
+        utterance.onerror = (event) => {
+          console.error('🔊 Speech error:', event.error);
+          if (event.error === 'not-allowed') {
+            alert(`🔊 Please allow audio playback in your browser settings.`);
+          } else if (event.error === 'language-unavailable') {
+            alert(`🔊 ${langMap[target]} voice not available on your device. Try English or Hindi.`);
+          } else {
+            alert(`🔊 Speech failed: ${event.error}`);
+          }
+        };
+        
+        window.speechSynthesis.speak(utterance);
+      } else {
+        alert('🔊 Text-to-speech not supported in your browser.');
       }
+      
+    } catch (err) {
+      console.error('🔊 TTS Error:', err);
+      alert(`🔊 Error: ${err.message}`);
     }
   };
 
