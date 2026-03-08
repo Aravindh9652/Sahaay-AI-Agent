@@ -364,58 +364,72 @@ export default function Translate(){
 
     console.log(`🔊 Speaking: "${result}" in ${langMap[target]}`);
     
-    // Use browser's Web Speech API - this works reliably
-    if ('speechSynthesis' in window) {
-      // Stop any ongoing speech
-      window.speechSynthesis.cancel();
+    // Use Google Translate TTS directly - works for ALL languages
+    const langCodes = {
+      'en': 'en',
+      'hi': 'hi',
+      'ta': 'ta',
+      'te': 'te',
+      'bn': 'bn'
+    };
+    
+    const langCode = langCodes[target] || 'en';
+    const encodedText = encodeURIComponent(result);
+    
+    // Google Translate TTS URL - this works for all Indian languages
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${langCode}&client=tw-ob&ttsspeed=0.8`;
+    
+    console.log(`🔊 Using Google TTS for ${langMap[target]}`);
+    
+    // Create and play audio
+    const audio = new Audio(ttsUrl);
+    
+    audio.onloadstart = () => {
+      console.log(`🔊 Loading audio...`);
+    };
+    
+    audio.oncanplaythrough = () => {
+      console.log(`🔊 Audio ready, playing...`);
+    };
+    
+    audio.onplay = () => {
+      console.log(`🔊 Playing ${langMap[target]} audio`);
+    };
+    
+    audio.onended = () => {
+      console.log(`🔊 Playback completed`);
+    };
+    
+    audio.onerror = (e) => {
+      console.error('🔊 Audio error:', e);
+      console.log('🔊 Trying browser speech synthesis as fallback...');
       
-      // Wait a bit for cancel to complete
-      setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(result);
-        
-        // Language codes for Indian languages
-        const langCodes = {
-          'en': 'en-US',
-          'hi': 'hi-IN',
-          'ta': 'ta-IN',
-          'te': 'te-IN',
-          'bn': 'bn-IN'
-        };
-        
-        utterance.lang = langCodes[target] || 'en-US';
-        utterance.rate = 0.85;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        
-        utterance.onstart = () => {
-          console.log(`🔊 Started speaking in ${langMap[target]}`);
-        };
-        
-        utterance.onend = () => {
-          console.log(`🔊 Finished speaking`);
-        };
-        
-        utterance.onerror = (event) => {
-          console.error('🔊 Speech error:', event.error);
-          
-          // If language not available, try English as fallback
-          if (event.error === 'language-unavailable' && target !== 'en') {
-            console.log(`🔊 ${langMap[target]} not available, trying English...`);
-            const fallbackUtterance = new SpeechSynthesisUtterance(result);
-            fallbackUtterance.lang = 'en-US';
-            fallbackUtterance.rate = 0.85;
-            window.speechSynthesis.speak(fallbackUtterance);
-          }
-        };
-        
-        // Speak the text
-        window.speechSynthesis.speak(utterance);
-        
-      }, 100);
-      
-    } else {
-      alert('🔊 Text-to-speech not supported in your browser. Please use Chrome, Edge, or Safari.');
-    }
+      // Fallback to browser speech synthesis
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        setTimeout(() => {
+          const utterance = new SpeechSynthesisUtterance(result);
+          const speechLangCodes = {
+            'en': 'en-US',
+            'hi': 'hi-IN',
+            'ta': 'ta-IN',
+            'te': 'te-IN',
+            'bn': 'bn-IN'
+          };
+          utterance.lang = speechLangCodes[target] || 'en-US';
+          utterance.rate = 0.85;
+          window.speechSynthesis.speak(utterance);
+        }, 100);
+      } else {
+        alert(`🔊 Audio playback failed for ${langMap[target]}. Please check your internet connection.`);
+      }
+    };
+    
+    // Play the audio
+    audio.play().catch(err => {
+      console.error('🔊 Play error:', err);
+      alert(`🔊 Could not play audio. Please click the Listen button again.`);
+    });
   };
 
   return (
