@@ -1,5 +1,6 @@
 import React, {useState, useRef, useEffect, useCallback} from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
+import { getApiBaseUrl } from '../utils/apiConfig'
 
 const languages = [
   {code: 'en', name: 'English'},
@@ -320,7 +321,8 @@ export default function Translate(){
     if (!text) return
     setLoading(true)
     try {
-      const res = await fetch('/api/translate/translate', {
+      const API_BASE_URL = getApiBaseUrl()
+      const res = await fetch(`${API_BASE_URL}/api/translate/translate`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({text, target, source, useAI: true})
@@ -363,8 +365,8 @@ export default function Translate(){
     try {
       console.log(`🔊 Requesting TTS for "${result}" in ${target} (${langMap[target]})...`);
       
-      // Call backend TTS endpoint - use relative path for production compatibility
-      const response = await fetch('/api/translate/tts', {
+      const API_BASE_URL = getApiBaseUrl()
+      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: result, language: target })
