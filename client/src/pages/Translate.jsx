@@ -368,43 +368,58 @@ export default function Translate(){
       const API_BASE_URL = getApiBaseUrl()
       const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'audio/mpeg'
+        },
         body: JSON.stringify({ text: result, language: target })
       });
 
+      console.log(`🔊 Response status: ${response.status}`);
+      console.log(`🔊 Response headers:`, response.headers.get('content-type'));
+
       if (!response.ok) {
-        throw new Error(`Server error: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(errorData.error || `Server error: ${response.statusText}`);
       }
 
       // Get audio blob from response
       const audioBlob = await response.blob();
       
+      console.log(`🔊 Audio blob size: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+      
       if (audioBlob.size === 0) {
-        throw new Error('Empty audio response');
+        throw new Error('Empty audio response from server');
       }
 
-      console.log(`🔊 Playing audio for ${langMap[target]}: "${result}" (${audioBlob.size} bytes)`);
-      
       // Create object URL for the blob
       const audioUrl = URL.createObjectURL(audioBlob);
+      console.log(`🔊 Created audio URL: ${audioUrl}`);
       
       // Create audio element and play
       const audio = new Audio(audioUrl);
-      audio.play().then(() => {
-        console.log(`🔊 Playing audio successfully for ${langMap[target]}`);
-      }).catch(err => {
-        console.error('Audio playback failed:', err);
-        alert(`🔊 Sorry, couldn't play audio for ${langMap[target]}. Try again.`);
-      });
-
-      // Clean up the URL after playback
+      
+      audio.onloadeddata = () => {
+        console.log(`🔊 Audio loaded successfully, duration: ${audio.duration}s`);
+      };
+      
+      audio.onerror = (e) => {
+        console.error('🔊 Audio element error:', e);
+        URL.revokeObjectURL(audioUrl);
+        alert(`🔊 Audio playback failed for ${langMap[target]}. The audio format may not be supported.`);
+      };
+      
       audio.onended = () => {
+        console.log(`🔊 Audio playback completed`);
         URL.revokeObjectURL(audioUrl);
       };
+      
+      await audio.play();
+      console.log(`🔊 Playing audio for ${langMap[target]}`);
 
     } catch (err) {
-      console.error('TTS Error:', err.message);
-      alert(`🔊 Error generating speech for ${langMap[target]}: ${err.message}`);
+      console.error('🔊 TTS Error:', err);
+      alert(`🔊 Error: ${err.message}`);
     }
   };
 
