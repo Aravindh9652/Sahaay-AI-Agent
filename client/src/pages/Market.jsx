@@ -43,13 +43,35 @@ export default function Market(){
     setAiQuery('')
     setAiLoading(true)
     setChatHistory(prev => [...prev, { role: 'user', text: question }])
+    
+    const token = getToken()
+    const user = JSON.parse(localStorage.getItem('sahaay_user') || '{}')
+    
     try {
-      const res = await fetch('/api/test/bedrock?prompt=' + encodeURIComponent(
-        `You are SAHAAY AI career advisor for Indian job seekers. Help with job search, career advice, interview tips, or grant/scholarship guidance. Answer concisely in 3-4 sentences: ${question}`
-      ))
+      const API_BASE_URL = getApiBaseUrl()
+      console.log('[AI] Sending request to:', `${API_BASE_URL}/api/aws/query`)
+      
+      const res = await fetch(`${API_BASE_URL}/api/aws/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user?.id || 'anonymous',
+          query: `You are SAHAAY AI career advisor. Answer this job/career question: ${question}`,
+          language: 'en'
+        })
+      })
+      
+      console.log('[AI] Response status:', res.status)
       const data = await res.json()
-      setChatHistory(prev => [...prev, { role: 'ai', text: data.response || data.error || 'No response' }])
+      console.log('[AI] Response data:', data)
+      
+      const aiResponse = data?.data?.answer || data?.error || 'No response from AI'
+      setChatHistory(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (err) {
+      console.error('[AI] Error:', err)
       setChatHistory(prev => [...prev, { role: 'ai', text: 'Error connecting to AI. Please try again.' }])
     }
     setAiLoading(false)

@@ -50,13 +50,35 @@ export default function Education(){
     setAiQuery('')
     setAiLoading(true)
     setChatHistory(prev => [...prev, { role: 'user', text: question }])
+    
+    const token = getToken()
+    const user = JSON.parse(localStorage.getItem('sahaay_user') || '{}')
+    
     try {
-      const res = await fetch('/api/test/bedrock?prompt=' + encodeURIComponent(
-        `You are SAHAAY AI learning advisor for Indian students. Recommend courses, learning paths, or answer education questions concisely in 3-4 sentences: ${question}`
-      ))
+      const API_BASE_URL = getApiBaseUrl()
+      console.log('[AI] Sending request to:', `${API_BASE_URL}/api/aws/query`)
+      
+      const res = await fetch(`${API_BASE_URL}/api/aws/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user?.id || 'anonymous',
+          query: `You are SAHAAY AI learning advisor. Answer this education question: ${question}`,
+          language: 'en'
+        })
+      })
+      
+      console.log('[AI] Response status:', res.status)
       const data = await res.json()
-      setChatHistory(prev => [...prev, { role: 'ai', text: data.response || data.error || 'No response' }])
+      console.log('[AI] Response data:', data)
+      
+      const aiResponse = data?.data?.answer || data?.error || 'No response from AI'
+      setChatHistory(prev => [...prev, { role: 'ai', text: aiResponse }])
     } catch (err) {
+      console.error('[AI] Error:', err)
       setChatHistory(prev => [...prev, { role: 'ai', text: 'Error connecting to AI. Please try again.' }])
     }
     setAiLoading(false)
