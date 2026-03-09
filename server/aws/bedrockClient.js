@@ -167,20 +167,13 @@ async function translateWithBedrock(text, targetLanguage) {
 
   const targetLangName = languageNames[targetLanguage] || targetLanguage;
 
-  const prompt = `You are a professional translator specializing in Indian languages. Translate the following text accurately to ${targetLangName}.
+  const prompt = `Translate this text to ${targetLangName}. Output ONLY the translation, nothing else.
 
-IMPORTANT RULES:
-1. Provide ONLY the translated text, no explanations or notes
-2. Maintain the original meaning and context
-3. Use natural, conversational language
-4. For proper nouns (names, places), keep them as-is or transliterate appropriately
-5. Preserve any numbers, dates, or technical terms accurately
+Text: "${text}"
 
-Text to translate: "${text}"
+${targetLangName} translation:`
 
-Translation in ${targetLangName}:`
-
-  return invokeBedrockModel(prompt, { maxTokens: 500 })
+  return invokeBedrockModel(prompt, { maxTokens: 500, temperature: 0.3 })
 }
 
 module.exports = {

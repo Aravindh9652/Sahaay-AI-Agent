@@ -24,7 +24,7 @@ dotenv.config()
 
 const app = express()
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://d3gd5027gtzr4j.cloudfront.net'],
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://sahaay-ai-agent.vercel.app'],
   credentials: true
 }))
 app.use(express.json())

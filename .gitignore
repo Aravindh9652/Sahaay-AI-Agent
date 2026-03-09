@@ -31,3 +31,8 @@ logs/
 # Misc
 .cache/
 .parcel-cache/
+
+# Deployment files
+*.zip
+LAMBDA-DEPLOYMENT-GUIDE.md
+test-lambda.html

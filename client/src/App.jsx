@@ -35,11 +35,6 @@ function AppContent(){
         // Immediately set user from stored token (trust it for persistent login)
         setUser(userData)
         
-        // If user is logged in and on home page, redirect to dashboard
-        if (location.pathname === '/' || location.pathname === '/login') {
-          navigate('/dashboard')
-        }
-        
         // Then verify token is still valid on the server (non-blocking)
         fetch('/api/auth/verify', {
           method: 'POST',
@@ -64,7 +59,7 @@ function AppContent(){
         setUser(null)
       }
     }
-  }, [location.pathname, navigate])
+  }, [navigate])
 
   const logout = () => {
     localStorage.removeItem('sahaay_token')
@@ -114,15 +109,15 @@ function AppContent(){
 
       <main className="main-content">
         <Routes>
-          <Route path="/" element={<Home user={user} />} />
-          <Route path="/login" element={<Login setUser={setUser} />} />
-          <Route path="/signup" element={<Signup setUser={setUser} />} />
+          <Route path="/" element={user ? <Dashboard user={user} /> : <Home user={user} />} />
+          <Route path="/login" element={user ? <Dashboard user={user} /> : <Login setUser={setUser} />} />
+          <Route path="/signup" element={user ? <Dashboard user={user} /> : <Signup setUser={setUser} />} />
           <Route path="/civic" element={<CivicHub />} />
           <Route path="/education" element={<Education />} />
           <Route path="/market" element={<Market />} />
           <Route path="/translate" element={<Translate />} />
           <Route path="/ai-console" element={<AIConsole />} />
-          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Home user={user} />} />
+          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Login setUser={setUser} />} />
           <Route path="/profile" element={<Profile setUser={setUser} />} />
         </Routes>
       </main>
