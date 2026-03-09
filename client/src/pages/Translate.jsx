@@ -362,17 +362,68 @@ export default function Translate(){
       'bn': 'Bengali'
     };
 
-    // Use browser's built-in Web Speech Synthesis API (works for all languages natively!)
+    console.log(`🔊 Requesting TTS for "${result}" in ${langMap[target]}`);
+
+    // Try backend TTS first (more reliable for Indian languages)
+    try {
+      const API_BASE_URL = getApiBaseUrl();
+      
+      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          text: result, 
+          language: target 
+        })
+      });
+
+      console.log(`🔊 Backend TTS response status: ${response.status}`);
+
+      if (response.ok) {
+        const audioBlob = await response.blob();
+        console.log(`🔊 Received audio: ${audioBlob.size} bytes`);
+        
+        if (audioBlob.size > 100) {
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          
+          audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+          };
+          
+          await audio.play();
+          console.log(`🔊 Backend TTS played successfully`);
+          return; // Success, exit
+        }
+      }
+    } catch (backendError) {
+      console.warn('🔊 Backend TTS failed, trying browser TTS:', backendError.message);
+    }
+
+    // Fallback to browser TTS
     if ('speechSynthesis' in window) {
       try {
-        console.log(`🔊 Using browser TTS for "${result}" in ${langMap[target]}`);
+        console.log(`🔊 Using browser TTS fallback for ${langMap[target]}`);
         
-        // Cancel any ongoing speech
+        // Wait for voices to load
+        let voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) {
+          await new Promise(resolve => {
+            window.speechSynthesis.onvoiceschanged = () => {
+              voices = window.speechSynthesis.getVoices();
+              resolve();
+            };
+            // Timeout after 1 second
+            setTimeout(resolve, 1000);
+          });
+        }
+        
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(result);
         
-        // Map language codes to browser speech synthesis language codes
         const langCodeMap = {
           'en': 'en-US',
           'hi': 'hi-IN',
@@ -382,45 +433,45 @@ export default function Translate(){
         };
         
         utterance.lang = langCodeMap[target] || 'en-US';
-        utterance.rate = 0.9; // Slightly slower for clarity
+        utterance.rate = 0.85;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
         
-        // Try to find a native voice for the language
-        const voices = window.speechSynthesis.getVoices();
-        const nativeVoice = voices.find(voice => 
-          voice.lang.startsWith(target) || voice.lang.startsWith(langCodeMap[target])
-        );
+        // Find best voice for language
+        voices = window.speechSynthesis.getVoices();
+        console.log(`🔊 Available voices: ${voices.length}`);
         
-        if (nativeVoice) {
-          utterance.voice = nativeVoice;
-          console.log(`🔊 Using native voice: ${nativeVoice.name}`);
-        } else {
-          console.log(`🔊 Using default voice for ${langCodeMap[target]}`);
+        const targetLang = langCodeMap[target];
+        let selectedVoice = voices.find(v => v.lang === targetLang);
+        
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith(target));
         }
         
-        utterance.onstart = () => {
-          console.log(`🔊 Playing ${langMap[target]} audio`);
-        };
+        if (!selectedVoice && target !== 'en') {
+          selectedVoice = voices.find(v => v.lang.startsWith('hi')); // Hindi fallback
+        }
         
-        utterance.onend = () => {
-          console.log(`🔊 Playback completed`);
-        };
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          console.log(`🔊 Using voice: ${selectedVoice.name} (${selectedVoice.lang})`);
+        } else {
+          console.log(`🔊 No specific voice found, using default`);
+        }
         
         utterance.onerror = (e) => {
-          console.error('🔊 Speech synthesis error:', e);
-          alert(`🔊 Audio playback failed: ${e.error}`);
+          console.error('🔊 Speech error:', e);
         };
         
-        // Speak the text
         window.speechSynthesis.speak(utterance);
+        console.log(`🔊 Browser TTS started`);
         
       } catch (err) {
         console.error('🔊 Browser TTS Error:', err);
-        alert(`🔊 Audio not available. Error: ${err.message}`);
+        alert(`🔊 Audio not available for ${langMap[target]}`);
       }
     } else {
-      alert('🔊 Text-to-speech not supported in your browser');
+      alert('🔊 Text-to-speech not supported');
     }
   };
 

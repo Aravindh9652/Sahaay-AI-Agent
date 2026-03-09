@@ -32,8 +32,13 @@ function AppContent(){
     if (stored) {
       try {
         const userData = JSON.parse(stored)
-        // Immediately set user from stored token (trust it)
+        // Immediately set user from stored token (trust it for persistent login)
         setUser(userData)
+        
+        // If user is logged in and on home page, redirect to dashboard
+        if (location.pathname === '/' || location.pathname === '/login') {
+          navigate('/dashboard')
+        }
         
         // Then verify token is still valid on the server (non-blocking)
         fetch('/api/auth/verify', {
@@ -46,6 +51,7 @@ function AppContent(){
               // Only clear if verification explicitly fails
               localStorage.removeItem('sahaay_token')
               setUser(null)
+              navigate('/login')
             }
           })
           .catch(err => {
@@ -58,7 +64,7 @@ function AppContent(){
         setUser(null)
       }
     }
-  }, [])
+  }, [location.pathname, navigate])
 
   const logout = () => {
     localStorage.removeItem('sahaay_token')

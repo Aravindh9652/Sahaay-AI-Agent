@@ -104,7 +104,8 @@ export default function Login({ setUser }){
         }
         localStorage.setItem('sahaay_token', JSON.stringify(user))
         setUser(user)
-        navigate('/dashboard')
+        // Force navigation to dashboard
+        window.location.href = '/dashboard'
       } else if (data?.userNotFound) {
         setError(t('accountNotFound'))
         setTimeout(() => {
