@@ -362,62 +362,65 @@ export default function Translate(){
       'bn': 'Bengali'
     };
 
-    try {
-      console.log(`🔊 Requesting TTS for "${result}" in ${langMap[target]}`);
-      
-      const API_BASE_URL = getApiBaseUrl();
-      
-      // Call Lambda TTS endpoint
-      const response = await fetch(`${API_BASE_URL}/api/translate/tts`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          text: result, 
-          language: target 
-        })
-      });
-
-      console.log(`🔊 Response status: ${response.status}`);
-
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+    // Use browser's built-in Web Speech Synthesis API (works for all languages natively!)
+    if ('speechSynthesis' in window) {
+      try {
+        console.log(`🔊 Using browser TTS for "${result}" in ${langMap[target]}`);
+        
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(result);
+        
+        // Map language codes to browser speech synthesis language codes
+        const langCodeMap = {
+          'en': 'en-US',
+          'hi': 'hi-IN',
+          'ta': 'ta-IN',
+          'te': 'te-IN',
+          'bn': 'bn-IN'
+        };
+        
+        utterance.lang = langCodeMap[target] || 'en-US';
+        utterance.rate = 0.9; // Slightly slower for clarity
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        // Try to find a native voice for the language
+        const voices = window.speechSynthesis.getVoices();
+        const nativeVoice = voices.find(voice => 
+          voice.lang.startsWith(target) || voice.lang.startsWith(langCodeMap[target])
+        );
+        
+        if (nativeVoice) {
+          utterance.voice = nativeVoice;
+          console.log(`🔊 Using native voice: ${nativeVoice.name}`);
+        } else {
+          console.log(`🔊 Using default voice for ${langCodeMap[target]}`);
+        }
+        
+        utterance.onstart = () => {
+          console.log(`🔊 Playing ${langMap[target]} audio`);
+        };
+        
+        utterance.onend = () => {
+          console.log(`🔊 Playback completed`);
+        };
+        
+        utterance.onerror = (e) => {
+          console.error('🔊 Speech synthesis error:', e);
+          alert(`🔊 Audio playback failed: ${e.error}`);
+        };
+        
+        // Speak the text
+        window.speechSynthesis.speak(utterance);
+        
+      } catch (err) {
+        console.error('🔊 Browser TTS Error:', err);
+        alert(`🔊 Audio not available. Error: ${err.message}`);
       }
-
-      // Get the audio blob
-      const audioBlob = await response.blob();
-      console.log(`🔊 Received audio: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
-      
-      if (audioBlob.size < 100) {
-        throw new Error('Audio file too small or empty');
-      }
-
-      // Create audio URL and play
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      audio.onplay = () => {
-        console.log(`🔊 Playing ${langMap[target]} audio`);
-      };
-      
-      audio.onended = () => {
-        console.log(`🔊 Playback completed`);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = (e) => {
-        console.error('🔊 Audio playback error:', e);
-        URL.revokeObjectURL(audioUrl);
-        throw new Error('Audio playback failed');
-      };
-      
-      // Play the audio
-      await audio.play();
-      
-    } catch (err) {
-      console.error('🔊 TTS Error:', err);
-      alert(`🔊 Audio not available for ${langMap[target]}. Error: ${err.message}`);
+    } else {
+      alert('🔊 Text-to-speech not supported in your browser');
     }
   };
 
